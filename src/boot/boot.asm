@@ -1,46 +1,72 @@
-org 0x7c00
+; 引导程序，加载FlyanxOS的第一步: boot　其做一些系统的初始化工作,然后寻找启动盘中的Loader,并加载它,使命完成
+;================================================================================================
+;%define	_BOOT_DEBUG_	; 做 Boot Sector 时一定将此行注释掉!将此行打开后用 nasm Boot.asm -o Boot.com 做成一个.COM文件易于调试
+%ifdef	_BOOT_DEBUG_
+	org  0100h			; 调试状态, 做成 .COM 文件, 可调试
+%else
+	org  07c00h			; Boot 状态, Bios 将把 Boot Sector 加载到 0:7C00 处并开始执行
+%endif
+;================================================================================================
+%ifdef	_BOOT_DEBUG_
+    BaseOfStack		equ	0100h	; 调试状态下堆栈基地址(栈底, 从这个位置向低地址生长)
+%else
+    BaseOfStack		equ	07c00h	; Boot状态下堆栈基地址(栈底, 从这个位置向低地址生长)
+%endif
+;================================================================================================
+	jmp short LABEL_START		; 跳转到程序开始处
+	nop							; 这个 nop 不可少
+;================================================================================================
+; 程序入口
+;----------------------------------------------------------------------------
+LABEL_START:
+    ; 寄存器复位
+    mov	ax, cs
+	mov	ds, ax
+	mov	es, ax
+	mov	ss, ax
+	mov	sp, BaseOfStack
 
-    jmp START
-    nop
+    ; 清屏,清理BIOS的输出
+    mov	ax, 0x0600		; AH = 6,  AL = 0h
+    mov	bx, 0x0700		; 黑底白字(BL = 07h)
+    mov	cx, 0			; 左上角: (0, 0)
+    mov	dx, 0x0184f		; 右下角: (80, 50)
+    int	0x10				; int 10h
 
-StackBase   equ     0x7c00
+    ; 显示字符串 "Booting.....  "
+    mov	dh, 0			; "Booting.....  "
+    call	DispStr		; 显示字符串
 
-; db 定义一个字节  dw 字word  dd 定义一个双字double word
-BootMessage:    db "Booting......"
-
-START:
-    mov ax, cs
-    mov ds, ax
-    mov ss, ax
-    mov sp, StackBase
-
-    ; 打印字符串"Booting..."
-    mov al, 1
-    mov bh, 0
-    mov bl, 0x07        ; 黑底白字
-    mov cx, 13
-    mov dh, 0
-    mov dh, 0
-    ; es = ds
-    push ds
-    pop es
-    mov bp, BootMessage
-    mov ah, 0x13
-    int 0x10
-
+    ; 死循环
     jmp $
-
-
-; times n m        n：重复定义多少次   m:定义的数据
-times 510-($-$$)   db    0
-dw  0xaa55          ; 引导扇区标志
-
-
-
-
-
-
-
-
-
-
+;============================================================================
+; 要显示的字符串
+;----------------------------------------------------------------------------
+LoaderFileName		db	"LOADER  BIN", 0	; LOADER.BIN 之文件名
+; 为简化代码, 下面每个字符串的长度均为 MessageLength
+MessageLength		equ	12
+BootMessage:		db	"Booting....."  ; 12字节, 不够则用空格补齐. 序号 0
+;============================================================================
+;----------------------------------------------------------------------------
+; 函数名: DispStr
+;----------------------------------------------------------------------------
+; 作用:
+;	显示一个字符串, 函数开始时 dh 中应该是字符串序号(0-based)
+DispStr:
+	mov	ax, MessageLength
+	mul	dh
+	add	ax, BootMessage
+	mov	bp, ax			; ┓
+	mov	ax, ds			; ┣ ES:BP = 串地址
+	mov	es, ax			; ┛
+	mov	cx, MessageLength	; CX = 串长度
+	mov	ax, 01301h		; AH = 13,  AL = 01h
+	mov	bx, 0007h		; 页号为0(BH = 0) 黑底白字(BL = 07h)
+	mov	dl, 0
+	int	10h			; int 10h
+	ret
+;============================================================================
+; times n m        n：重复多少次   m：重复的代码
+times 510-($-$$)   db    0  ; 填充剩下的空间，使生成的二进制代码恰好为512字节
+dw  0xaa55                  ; 可引导扇区结束标志，必须是55aa，不然 BIOS 无法识别
+;============================================================================
