@@ -99,22 +99,67 @@ NEXT_SECTOR_IN_ROOT_DIR:
     add word [wSector], 1   ; 准备开始读取下一个扇区
     jmp SEARCH_FILE_IN_ROOR_DIR_BEGIN
 
-FILENAME_FOUND:
-    mov dh, 1
-    call DispStr    ; 打印"Fount  it!"
-    ; 死循环
-    jmp $
 NO_FILE:
     mov dh, 2
     call DispStr    ; 打印"NO LOADER!"
-
     ; 死循环
     jmp $
+FILENAME_FOUND:
+    push es
+    mov dh, 1
+    call DispStr    ; 打印"Loading..."
+    pop es
+
+    ; 准备参数，开始读取文件数据扇区
+    mov ax, RootDirSectors      ; ax = 根目录占用空间（占用的扇区数）
+    and di, 0xfff0              ; di &= f0, 11111111 11110000，是为了让它指向本目录项条目的开始。
+    add di, 0x1a                ; FAT目录项第0x1a处偏移是文件数据所在的第一个簇号
+    mov cx, word [es:di]        ; cx = 文件数据所在的第一个簇号
+    push cx                     ; 保存文件数据所在的第一个簇号
+    ; 通过簇号计算它的真正扇区号
+    add cx, ax
+    add cx, DeltaSectorNo       ; 簇号 + 根目录占用空间 + 文件开始扇区号 == 文件数据的第一个扇区
+    mov ax, LOADER_SEG
+    mov es, ax                  ; es <- LOADER_SEG
+    mov bx, LOADER_OFFSET       ; bx <- LOADER_OFFSET
+    mov ax, cx                  ; ax = 文件数据的第一个扇区
+LOADING_FILE:
+    ; 我们每读取一个数据扇区，就在“Loading...”之后接着打印一个点，形成一种动态加载的动画。
+    ; 0x10中断，0xe功能 --> 在光标后打印一个字符
+    push ax
+    push bx
+    mov ah, 0xe
+    mov al, '.'
+    mov bl, 0xf
+    int 0x10
+    pop bx
+    pop ax
+
+    mov cl, 1                   ; 读1个
+    call ReadSector             ; 读取
+    pop ax                      ; 取出前面保存的文件的的簇号
+    call GET_FATEntry           ; 通过簇号获得该文件的下一个FAT项的值
+    cmp ax, 0xff8
+    jae FILE_LOADED             ; 加载完成...
+    ; FAT项的值 < 0xff8，那么我们继续设置下一次要读取的扇区的参数
+    ; 通过簇号计算它的真正扇区号
+    push ax                     ; 保存簇号
+    mov dx, RootDirSectors
+    add ax, dx
+    add ax, DeltaSectorNo       ; 簇号 + 根目录占用空间 + 文件开始扇区号 == 文件数据的扇区
+    add bx, [BPB_BytsPerSec]    ; bx += 扇区字节量
+    jmp LOADING_FILE
+FILE_LOADED:
+    mov dh, 3
+    call DispStr                ; 打印"Loaded ^-^"
+
+    jmp LOADER_SEG:LOADER_OFFSET    ; 跳转到Loader程序，至此我们的引导程序使命结束
 
 ;============================================================================
 ; 变量
 wRootDirSizeLoop    dw      RootDirSectors  ; 根目录占用的扇区数，在循环中将被被逐步递减至0
 wSector             dw      0               ; 要读取的扇区号
+isOdd               db      0               ; 读取的FAT条目是不是奇数项?
 ;============================================================================
 ; 要显示的字符串
 ;----------------------------------------------------------------------------
@@ -122,8 +167,9 @@ LoaderFileName		db	"LOADER  BIN", 0	; LOADER.BIN 之文件名
 ; 为简化代码, 下面每个字符串的长度均为 MessageLength
 MessageLength		equ	10
 BootMessage:		db	"Booting..."  ; 12字节, 不够则用空格补齐. 序号 0
-                    db  "Fount  it!"
+                    db  "Loading..."
                     db  "NO LOADER!"
+                    db  "Loaded ^-^"
 ;============================================================================
 ;----------------------------------------------------------------------------
 ; 函数名: DispStr
@@ -186,6 +232,57 @@ ReadSector:
 	pop	bp
 
 	ret
+
+
+;============================================================================
+; 作用：找到簇号为 ax 在 FAT 中的条目，然后将结果放入 ax 中。
+; 注意：中间我们需要加载 FAT表的扇区到es:bx处，所以我们需要先保存es:bx
+GET_FATEntry:
+    push es
+    push bx
+
+    ; 在加载的段地址处开辟出新的空间用于存放加载的FAT表
+    push ax
+    mov ax, LOADER_SEG - 0x100
+    mov es, ax
+    pop ax
+
+    ; 首先计算出簇号在FAT中的字节偏移量，然后还需要计算出该簇号的奇偶性、
+    ; 偏移值: 簇号 * 3 / 2 的商，因为3个字节表示2个簇，所以字节和簇之间的比例就是3:2。
+    mov byte [isOdd], 0     ; isOdd = FALSE
+    mov bx, 3               ; bx = 3
+    mul bx                  ; ax * 3 --> dx存放高8位，ax存放低8位
+    mov bx, 2               ; bx = 2
+    div bx                  ; dx:ax / 2 --> ax存放商，dx存放余数。
+    cmp dx, 0
+    je EVEN
+    mov byte [isOdd], 1     ; isOdd = TRUE
+EVEN:       ; 偶数
+    ; FAT表占 9个扇区 ， 簇号 5 ， 5 / 512 -- 0 .. 5， FAT表中的0扇区， FAT表0扇区中这个簇号所在偏移是5
+    ; 570   570 / 512 -- 1 .. 58， FAT表中的1扇区， FAT表1扇区中这个簇号所在偏移是58
+    xor dx, dx              ; dx = 0
+    mov bx, [BPB_BytsPerSec]; bx = 每扇区字节数
+    div bx                  ; dx:ax / 每扇区字节数，ax(商)存放FAT项相对于FAT表中的扇区号，
+                            ; dx(余数)FAT项在相对于FAT表中的扇区的偏移。
+    push dx                 ; 保存FAT项在相对于FAT表中的扇区的偏移。
+    mov bx, 0               ; bx = 0，es:bx --> (LOADER_SEG - 0x100):0
+    add ax, SectorNoOfFAT1  ; 此句执行之后的 ax 就是 FATEntry 所在的扇区号
+    mov cl, 2               ; 读取两个扇区
+    call ReadSector         ; 一次读两个，避免发生边界错误问题，因为一个FAT项可能会跨越两个扇区
+    pop dx                  ; 恢复FAT项在相对于FAT表中的扇区的偏移。
+    add bx, dx              ; bx += FAT项在相对于FAT表中的扇区的偏移，得到FAT项在内存中的偏移地址，因为已经将扇区读取到内存中
+    mov ax, [es:bx]         ; ax = 簇号对应的FAT项，但还没完成
+    cmp byte [isOdd], 1
+    jne EVEN_2
+    ; 奇数FAT项处理
+    shr ax, 4               ; 需要将低四位清零（他是上一个FAT项的高四位）
+    jmp GET_FATEntry_OK
+EVEN_2:         ; 偶数FAT项处理
+    and ax, 0xfff   ; 需要将高四位清零（它是下一个FAT项的低四位）
+GET_FATEntry_OK:
+	pop bx
+	pop es
+    ret
 ;============================================================================
 ; times n m        n：重复多少次   m：重复的代码
 times 510-($-$$)   db    0  ; 填充剩下的空间，使生成的二进制代码恰好为512字节

@@ -1,7 +1,7 @@
 org 0x100
     jmp START
 
- BaseOfStack		equ	0x100	; 调试状态下堆栈基地址(栈底, 从这个位置向低地址生长)
+BaseOfStack		equ	0x100	; 调试状态下堆栈基地址(栈底, 从这个位置向低地址生长)
 
 START:
     ; 寄存器复位
