@@ -10,8 +10,8 @@
 #----------------------------------------------------------------------------
 # 编译链接中间目录
 t = target
-tb = target/boot
-tk = target/kernel
+tb = $t/boot
+tk = $t/kernel
 
 # 所需软盘镜像，可以指定已存在的软盘镜像，系统内核将被写入到这里
 FD = Flyanx.img
@@ -80,6 +80,8 @@ $(tb)/boot.bin: src/boot/boot.asm
 	$(ASM) $(ASMFlagsOfBoot) -o $@ $<
 
 # 加载程序Loader
+$(tb)/loader.bin: src/boot/include/fat12hdr.inc
+$(tb)/loader.bin: src/boot/include/load.inc
 $(tb)/loader.bin: src/boot/loader.asm
 	$(ASM) $(ASMFlagsOfBoot) -o $@ $<
 
