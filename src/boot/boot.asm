@@ -40,8 +40,8 @@ LABEL_START:
     mov	dx, 0x0184f		; 右下角: (80, 50)
     int	0x10				; int 10h
 
-    ; 显示字符串 "Booting.....  "
-    mov	dh, 0			; "Booting.....  "
+    ; 显示字符串 "Booting..."
+    mov	dh, 0			; "Booting..."
     call	DispStr		; 显示字符串
 
     ; 操作软盘前，现将软驱复位
@@ -69,7 +69,7 @@ SEARCH_FILE_IN_ROOR_DIR_BEGIN:
     cld     ; 字符串比较方向，si、di方向向右
 
     ; 开始在扇区中寻找文件，比较文件名
-    mov dx, 16                  ; 一个扇区512字节，FAT目录项是32位，512/32 = 16，一个扇区有512个目录项
+    mov dx, 16                  ; 一个扇区512字节，FAT目录项占用32个字节，512/32 = 16，所以一个扇区有16个目录项
 SEARCH_FOR_FILE:
     cmp dx, 0
     jz NEXT_SECTOR_IN_ROOT_DIR                 ; 读完整个扇区，依旧没找到，准备加载下一个扇区
@@ -105,11 +105,6 @@ NO_FILE:
     ; 死循环
     jmp $
 FILENAME_FOUND:
-    push es
-    mov dh, 1
-    call DispStr    ; 打印"Loading..."
-    pop es
-
     ; 准备参数，开始读取文件数据扇区
     mov ax, RootDirSectors      ; ax = 根目录占用空间（占用的扇区数）
     and di, 0xfff0              ; di &= f0, 11111111 11110000，是为了让它指向本目录项条目的开始。
@@ -150,7 +145,7 @@ LOADING_FILE:
     add bx, [BPB_BytsPerSec]    ; bx += 扇区字节量
     jmp LOADING_FILE
 FILE_LOADED:
-    mov dh, 3
+    mov dh, 2
     call DispStr                ; 打印"Loaded ^-^"
 
     jmp LOADER_SEG:LOADER_OFFSET    ; 跳转到Loader程序，至此我们的引导程序使命结束
@@ -167,7 +162,6 @@ LoaderFileName		db	"LOADER  BIN", 0	; LOADER.BIN 之文件名
 ; 为简化代码, 下面每个字符串的长度均为 MessageLength
 MessageLength		equ	10
 BootMessage:		db	"Booting..."  ; 12字节, 不够则用空格补齐. 序号 0
-                    db  "Loading..."
                     db  "NO LOADER!"
                     db  "Loaded ^-^"
 ;============================================================================
