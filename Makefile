@@ -58,7 +58,8 @@ debug: $(FD)
 
 # 运行Flyanx系统：打印提示信息
 run: $(FD)
-	@echo "使用Vbox等虚拟机挂载Flyanx.img软盘，即可开始运行！"
+	@qemu-system-i386 -drive file=$(FD),if=floppy
+	@echo "你还可以使用Vbox等虚拟机挂载Flyanx.img软盘，即可开始运行！"
 
 # 清理所有的中间编译文件
 clean:

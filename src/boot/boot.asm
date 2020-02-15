@@ -145,7 +145,7 @@ LOADING_FILE:
     add bx, [BPB_BytsPerSec]    ; bx += 扇区字节量
     jmp LOADING_FILE
 FILE_LOADED:
-    mov dh, 2
+    mov dh, 1
     call DispStr                ; 打印"Loaded ^-^"
 
     jmp LOADER_SEG:LOADER_OFFSET    ; 跳转到Loader程序，至此我们的引导程序使命结束
@@ -162,8 +162,8 @@ LoaderFileName		db	"LOADER  BIN", 0	; LOADER.BIN 之文件名
 ; 为简化代码, 下面每个字符串的长度均为 MessageLength
 MessageLength		equ	10
 BootMessage:		db	"Booting..."  ; 12字节, 不够则用空格补齐. 序号 0
-                    db  "NO LOADER!"
                     db  "Loaded ^-^"
+                    db  "NO LOADER!"
 ;============================================================================
 ;----------------------------------------------------------------------------
 ; 函数名: DispStr

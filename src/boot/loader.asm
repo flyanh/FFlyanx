@@ -2,14 +2,30 @@
 ; 这个 加载文件　突破了引导扇区 512 字节的限制(但还是在64K的限制内，但对我们完全够用)，我们可以在这里完成很多事情，所以较为重要
 org 0x100
     jmp START           ; 程序开始处
-
 ;============================================================================
 ;   头文件
 ;----------------------------------------------------------------------------
 %include "load.inc"         ; 挂载点相关的信息
 %include "fat12hdr.inc"     ; 导入它是因为需要这些信息来加载内核文件
+%include "pm.inc"           ; 保护模式的一些信息，各种宏和变量
 ;============================================================================
-BaseOfStack		equ	0x100	; 基栈
+;   GDT全局描述符表相关信息以及堆栈信息
+;----------------------------------------------------------------------------
+; 描述符                        基地址        段界限       段属性
+LABEL_GDT:			Descriptor	0,          0,          0							; 空描述符，必须存在，不然CPU无法识别GDT
+LABEL_DESC_CODE:	Descriptor	0,          0xfffff,    DA_32 | DA_CR | DA_LIMIT_4K	; 0~4G，32位可读代码段，粒度为4KB
+LABEL_DESC_DATA:    Descriptor  0,          0xfffff,    DA_32 | DA_DRW | DA_LIMIT_4K; 0~4G，32位可读写数据段，粒度为4KB
+LABEL_DESC_VIDEO:   Descriptor  0xb8000,    0xfffff,    DA_DRW | DA_DPL3            ; 视频段，特权级3（用户特权级）
+; GDT全局描述符表 -------------------------------------------------------------
+GDTLen              equ $ - LABEL_GDT                           ; GDT的长度
+GDTPtr              dw GDTLen - 1                               ; GDT指针.段界限
+                    dd LOADER_PHY_ADDR + LABEL_GDT              ; GDT指针.基地址
+; GDT选择子 ------------------------------------------------------------------
+SelectorCode        equ LABEL_DESC_CODE - LABEL_GDT             ; 代码段选择子
+SelectorData        equ LABEL_DESC_DATA - LABEL_GDT             ; 数据段选择子
+SelectorVideo       equ LABEL_DESC_VIDEO - LABEL_GDT | SA_RPL3  ; 视频段选择子，特权级3（用户特权级）
+; GDT选择子 ------------------------------------------------------------------
+BaseOfStack	        equ	0x100                                   ; 基栈
 ;============================================================================
 ;   16位实模式代码段
 ;----------------------------------------------------------------------------
@@ -43,7 +59,7 @@ MemChkLoop:
     jmp MemChkLoop
 MemChkFail:
     mov dword [_ddMCRCount], 0  ; 检查失败，ADRS数量设置为0
-    mov dh, 1
+    mov dh, 2
     call DispStr    ; 打印"Mem Chk Fail!"
     jmp $           ; 死循环
 MemChkFinish:
@@ -103,7 +119,7 @@ NEXT_SECTOR_IN_ROOT_DIR:
     jmp SEARCH_FILE_IN_ROOR_DIR_BEGIN
 
 NO_FILE:
-    mov dh, 2
+    mov dh, 4
     call DispStr    ; 打印"NO KERNEL!"
     ; 死循环
     jmp $
@@ -111,6 +127,19 @@ FILENAME_FOUND:
     ; 准备参数，开始读取文件数据扇区
     mov ax, RootDirSectors      ; ax = 根目录占用空间（占用的扇区数）
     and di, 0xfff0              ; di &= f0, 11111111 11110000，是为了让它指向本目录项条目的开始。
+
+    push eax                    ; 保存eax的值
+    mov eax, [es:di + 0x1c]     ; FAT目录项第0x1c处偏移是文件大小
+    mov dword [dwKernelSize], eax   ; 保存内核文件大小
+    cmp eax, KERNEL_HAVE_SPACE  ; 看看内核文件大小有没有超过我们为其保留的大小
+    ja KERNEL_FILE_TOO_LARGE    ; 超过了！
+    pop eax                     ; 恢复eax
+    jmp FILE_START_LAOD         ; 没超过，准备开始加载内核文件
+KERNEL_FILE_TOO_LARGE:          ; 内核文件太大了，超过了我们给它留的128KB
+    mov dh, 3
+    call DispStr                ; 打印"Too Large!"
+    jmp $                       ;
+FILE_START_LAOD:
     add di, 0x1a                ; FAT目录项第0x1a处偏移是文件数据所在的第一个簇号
     mov cx, word [es:di]        ; cx = 文件数据所在的第一个簇号
     push cx                     ; 保存文件数据所在的第一个簇号
@@ -146,16 +175,52 @@ LOADING_FILE:
     add ax, dx
     add ax, DeltaSectorNo       ; 簇号 + 根目录占用空间 + 文件开始扇区号 == 文件数据的扇区
     add bx, [BPB_BytsPerSec]    ; bx += 扇区字节量
+    jc KERNEL_GREAT_64KB        ; 如果bx += 扇区字节量，产生了一个进位，说明已经读满64KB，内核文件大于64KB
+    jmp CONTINUE_LOADING        ; 内核文件还在64KB内，继续正常加载
+KERNEL_GREAT_64KB:
+    ; es += 0x1000，es指向下一个段，准备继续加载
+    push ax
+    mov ax, es
+    add ax, 0x1000
+    mov es, ax
+    pop ax
+CONTINUE_LOADING:               ; 继续加载内核文件
     jmp LOADING_FILE
 FILE_LOADED:
-   mov dh, 5
-   call DispStr ;  打印"Hello KER!"
-   jmp $
+    call KillMotor  ; 关闭软驱马达
+    mov dh, 1
+    call DispStr    ; 打印"KERNEL OK!"
+;----------------------------------------------------------------------------
+; 万事俱备，准备进入32位保护模式
+;----------------------------------------------------------------------------
+    ; 1 首先，进入保护模式必须有 GDT 全局描述符表，我们加载 gdtr（gdt地址指针）
+    lgdt	[GDTPtr]
+
+    ; 2 由于保护模式中断处理的方式和实模式不一样，所以我们需要先关闭中断，否则会引发错误
+    cli
+
+    ; 3 打开地址线A20，不打开也可以进入保护模式，但内存寻址能力受限（1MB）
+    in al, 92h
+    or al, 00000010b
+    out 92h, al
+
+    ; 4 进入16位保护模式，设置cr0的第0位：PE（保护模式标志）为1
+    mov eax, cr0
+    or 	eax, 1
+    mov cr0, eax
+
+    ; 5 真正进32位入保护模式！前面的4步已经进入了保护模式
+    ; 	现在只需要跳入到一个32位代码段就可以真正进入32位保护模式了！
+    jmp dword SelectorCode:LOADER_PHY_ADDR + PM_32_START
+
+    ; 如果上面一切顺利，这一行永远不可能执行的到
+    jmp $
 ;============================================================================
 ; 变量
 wRootDirSizeLoop    dw      RootDirSectors  ; 根目录占用的扇区数，在循环中将被被逐步递减至0
 wSector             dw      0               ; 要读取的扇区号
 isOdd               db      0               ; 读取的FAT条目是不是奇数项?
+dwKernelSize        dd      0               ; 内核文件的大小
 ;============================================================================
 ; 要显示的字符串
 ;----------------------------------------------------------------------------
@@ -163,9 +228,10 @@ KernelFileName		db	"KERNEL  BIN", 0	; KERNEL.BIN 之文件名
 ; 为简化代码, 下面每个字符串的长度均为 MessageLength
 MessageLength		equ	10
 Message:		    db	"Loading..."    ; 10, 不够则用空格补齐. 序号 0
-                    db  "MemChkFail"    ; 序号1
-                    db  "NO KERNEL!"    ; 序号2
-                    db  "Hello KER!"    ; 序号5
+                    db  "KERNEL OK!"    ; 序号1
+                    db  "MemChkFail"    ; 序号2
+                    db  "Too large!"    ; 序号3
+                    db  "NO KERNEL!"    ; 序号4
 ;============================================================================
 ;----------------------------------------------------------------------------
 ; 函数名: DispStr
@@ -175,6 +241,7 @@ Message:		    db	"Loading..."    ; 10, 不够则用空格补齐. 序号 0
 DispStr:
 	mov	ax, MessageLength
 	mul	dh
+	add dh, 2           ; 在引导程序的输出下面开始显示
 	add	ax, Message
 	mov	bp, ax			; ┓
 	mov	ax, ds			; ┣ ES:BP = 串地址
@@ -228,8 +295,6 @@ ReadSector:
 	pop	bp
 
 	ret
-
-
 ;============================================================================
 ; 作用：找到簇号为 ax 在 FAT 中的条目，然后将结果放入 ax 中。
 ; 注意：中间我们需要加载 FAT表的扇区到es:bx处，所以我们需要先保存es:bx
@@ -279,6 +344,48 @@ GET_FATEntry_OK:
 	pop bx
 	pop es
     ret
+ ;============================================================================
+ ;----------------------------------------------------------------------------
+ ; 函数名: KillMotor
+ ;----------------------------------------------------------------------------
+ ; 作用:
+ ;	关闭软驱马达，有时候软驱读取完如果不关闭马达，马达会持续运行且发出声音
+ KillMotor:
+ 	push	dx
+ 	mov	dx, 03F2h
+ 	mov	al, 0
+ 	out	dx, al
+ 	pop	dx
+ 	ret
+;============================================================================
+;============================================================================
+;   32位数据段
+;----------------------------------------------------------------------------
+[section .code32]
+align 32
+[bits 32]
+PM_32_START:            ; 跳转到这里，说明已经进入32位保护模式
+    mov ax, SelectorData
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov ss, ax              ; ds = es = fs = ss = 数据段
+    mov esp, TopOfStack     ; 设置栈顶
+    mov ax, SelectorVideo
+    mov gs, ax              ; gs = 视频段
+
+    ; 打印一些字符，自己操作显存，将字符写入到显存中
+    ; 显示 "PM" 在第 9 行第 0 列
+    mov edi, (80 * 9 + 0) * 2	; 屏幕第 9 行，第 0 列。
+    mov ah, 0xC                 ; 0000：黑底	1100：红字
+    mov al, 'P'
+    mov word [gs:edi], ax       ; 将'P'写入屏幕第 9 行，第 0 列。
+    add edi , 2                 ; edi + 2，指向下一列
+    mov al, 'M'
+    mov word [gs:edi], ax       ; 将'M'写入屏幕第 9 行，第 1 列。
+
+    ; 死循环
+    jmp $
 ;============================================================================
 ;   32位数据段
 ;----------------------------------------------------------------------------
@@ -304,5 +411,7 @@ _MemChkBuf:          times 256 db 0
 ;   32位模式下的数据地址符号
 ;----------------------------------------------------------------------------
 
-
+; 堆栈就在数据段的末尾，一共给这个32位代码段堆栈分配4KB
+StackSpace: times 0x1000    db 0
+TopOfStack  equ LOADER_PHY_ADDR + $     ; 栈顶
 ;============================================================================
