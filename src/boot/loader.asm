@@ -41,28 +41,23 @@ START:                  ; 程序入口
     mov	dh, 0
     call DispStr		; 显示字符串
 
-    ; 检查并得到内存信息
-    mov ebx, 0          ; ebx = 得到后续的内存信息的值，第一次必须为0，将获取第一个ADRS
-    mov di, _MemChkBuf  ; es:di -> 指向准备写入ADRS的缓冲区地址
-MemChkLoop:
-    mov eax, 0x0000e820 ; eax = 0x0000e820
-    mov ecx, 20         ; ecx = ADRS的大小
-    mov edx, 0x0534d4150; "SMAP"
-    int 0x15            ; 得到ADRS
-    jc MemChkFail       ; 产生了一个进位，CF=1，检查得到ADRS错误！
-    ; CF = 0，检查并获取成功
-    add di, 20          ; di += 20，es:di指向缓冲区准备放入下一个ADRS的地址
-    inc dword [_ddMCRCount] ; ADRS数量++
-    cmp ebx, 0
-    je MemChkFinish         ; ebx == 0，表示已经拿到最后一个ADRS了，完成检查并跳出循环
-    ; ebx != 0，表示还没拿到最后一个，继续
-    jmp MemChkLoop
-MemChkFail:
-    mov dword [_ddMCRCount], 0  ; 检查失败，ADRS数量设置为0
-    mov dh, 2
-    call DispStr    ; 打印"Mem Chk Fail!"
-    jmp $           ; 死循环
-MemChkFinish:
+   ; 得到内存数
+    mov ebx, 0          ; ebx = 后续值，开始时需为0
+    mov di, _MemChkBuf  ; es:di 指向一个地址范围描述符结构(Address Range Descriptor Structure)
+.MemChkLoop:
+	mov eax, 0E820h		; eax = 0000E820h
+	mov ecx, 20			; ecx = 地址范围描述符结构的大小
+	mov edx, 0534D4150h	; edx = 'SMAP'
+	int 15h
+	jc .MemChkFail		; 如果产生的进位，即CF = 1，跳转到.MemChkFail
+	add di, 20
+	inc dword [_ddMCRCount]	; _dwMCRNumber = ARDS　的个数
+	cmp ebx, 0
+	jne .MemChkLoop		; ebx != 0，继续进行循环
+	jmp .MemChkOK		; ebx == 0，得到内存数OK
+.MemChkFail:
+	mov dword [_ddMCRCount], 0
+.MemChkOK:
     ; 操作软盘前，现将软驱复位
     xor ah, ah          ; xor:异或，ah = 0
     xor dl, dl          ; dl = 0
@@ -359,7 +354,7 @@ GET_FATEntry_OK:
  	ret
 ;============================================================================
 ;============================================================================
-;   32位数据段
+;   32位代码段
 ;----------------------------------------------------------------------------
 [section .code32]
 align 32
@@ -374,18 +369,200 @@ PM_32_START:            ; 跳转到这里，说明已经进入32位保护模式
     mov ax, SelectorVideo
     mov gs, ax              ; gs = 视频段
 
-    ; 打印一些字符，自己操作显存，将字符写入到显存中
-    ; 显示 "PM" 在第 9 行第 0 列
-    mov edi, (80 * 9 + 0) * 2	; 屏幕第 9 行，第 0 列。
-    mov ah, 0xC                 ; 0000：黑底	1100：红字
-    mov al, 'P'
-    mov word [gs:edi], ax       ; 将'P'写入屏幕第 9 行，第 0 列。
-    add edi , 2                 ; edi + 2，指向下一列
-    mov al, 'M'
-    mov word [gs:edi], ax       ; 将'M'写入屏幕第 9 行，第 1 列。
+    ; 计算内存大小
+    call CalcMemSize
+    ; 打印内存信息
+    call PrintMemSize
 
     ; 死循环
     jmp $
+;============================================================================
+;   计算内存大小
+; 本函数根据之前保存的ARDS，计算内存总大小并保存起来
+;----------------------------------------------------------------------------
+CalcMemSize:
+    push esi
+    push ecx
+    push edx
+    push edi
+
+    mov esi, MemChkBuf      ; ds:esi -> 缓冲区
+    mov ecx, [ddMCRCount]   ; ecx = 有多少个ARDS，记为i
+.loop:
+    mov edx, 5              ; ARDS有5个成员变量，记为j
+    mov edi, ARDS           ; ds:edi -> 一个ARDS结构
+.1: ; 将缓冲区中的第 i 个ARDS结构拷贝到ds:edi中的ARDS结构
+    push dword [esi]
+    pop eax                 ; ds:eax -> 缓冲区中的第一个ADRS结构
+    stosd                   ; 将ds:eax中的一个dword内容拷贝到ds:edi中，填充ADRS结构
+    add esi, 4              ; ds:esi指向ARDS中的下一个成员变量
+    dec edx                 ; j--
+    cmp edx, 0
+    jnz .1                  ; j != 0，继续填充
+    ; j == 0，ARDS结构填充完毕
+    cmp dword [ddType], 1
+    jne .2                  ; 不是OS可使用的内存范围，直接进入下个外循环看下一个ARDS
+    ; 是OS可用的地址范围，我们计算这个ARDS的内存大小
+    mov eax, [ddBaseAddrLow]; eax = 基地址低32位
+    add eax, [ddLengthLow]  ; eax = 基地址低32位 + 长度低32位 --> 这个ARDS结构的指代的内存大小
+                            ; 为什么不算高32为？因为32位既可以表示0~4G的内存范围，而32位CPU也只能识别0~4G
+                            ; 我们编写的是32位操作系统，所以高32位是为64位操作系统做准备的，我们不需要。
+    cmp eax, [ddMemSize]
+    jb .2
+    mov dword [ddMemSize], eax  ; 内存大小 = 最后一个基地址最大的ARDS的  基地址低32位 + 长度低32位
+.2:
+    loop .loop              ; jmp .loop, ecx--
+
+    pop edi
+    pop edx
+    pop ecx
+    pop esi
+    ret
+;============================================================================
+;   打印内存大小(以KB显示)
+;----------------------------------------------------------------------------
+PrintMemSize:
+    push ebx
+    push ecx
+
+    mov eax, [ddMemSize]    ; eax = 内存大小
+    xor edx, edx
+    mov ebx, 1024
+    div ebx                 ; eax / 1024 --> 内存大小(字节) / 1024 = 内存大小(KB)
+
+    push eax                ; 保存计算好的内存大小
+    ; 显示一个字符串"Memory Size: "
+    push strMemSize
+    call Print
+    add esp, 4
+
+;    ; 因为之前已经压入eax了，不需要再压入！
+    call PrintInt
+    add esp, 4
+
+    ; 打印"KB"
+    push strKB
+    call Print
+    add esp, 4
+
+    pop ecx
+    pop ebx
+    ret
+;============================================================================
+;   打印函数，它类似与C语言中的printf，但它不支持'%'可变参数
+; 函数原型：Print(void* ds:ptr)，ptr指向要打印的字符串，字符串以0结尾
+;----------------------------------------------------------------------------
+Print:
+    push esi
+    push edi
+    push ebx
+    push ecx
+    push edx
+
+    mov esi, [esp + 4 * 6]      ; 得到字符串地址
+    mov edi, [ddDispPosition]   ; 得到显示位置
+    mov ah, 0xf                 ; 黑底白字
+.1:
+    lodsb                       ; ds:esi -> al, esi++
+    test al, al
+    jz .PrintEnd                ; 遇到了0，结束打印
+    cmp al, 10
+    je .2
+    ; 如果不是0，也不是'\n'，那么我们认为它是一个可打印的普通字符
+    mov [gs:edi], ax
+    add edi, 2                  ; 指向下一列
+    jmp .1
+.2: ; 处理换行符'\n'
+    push eax
+    mov eax, edi                ; eax = 显示位置
+    mov bl, 160
+    div bl                      ; 显示位置 / 160，商eax就是当前所在行数
+    inc eax                     ; 行数++
+    mov bl, 160
+    mul bl                      ; 行数 * 160，得出这行的显示位置
+    mov edi, eax                ; edi = 新的显示位置
+    pop eax
+    jmp .1
+.PrintEnd:
+    mov dword [ddDispPosition], edi ; 打印完毕，更新显示位置
+
+    pop edx
+    pop ecx
+    pop edx
+    pop edi
+    pop esi
+    ret
+;============================================================================
+;   显示 AL 中的数字
+;----------------------------------------------------------------------------
+PrintAl:
+	push ecx
+	push edx
+	push edi
+	push eax
+
+	mov edi, [ddDispPosition]	; 得到显示位置
+
+	mov ah, 0Fh		; 0000b: 黑底	1111b: 白字
+	mov dl, al
+	shr al, 4
+	mov ecx, 2
+.begin:
+	and al, 01111b
+	cmp al, 9
+	ja	.1
+	add al, '0'
+	jmp	.2
+.1:
+	sub al, 10
+	add al, 'A'
+.2:
+	mov [gs:edi], ax
+	add edi, 2
+
+	mov al, dl
+	loop .begin
+
+	mov [ddDispPosition], edi	; 显示完毕后，设置新的显示位置
+
+    pop eax
+	pop edi
+	pop edx
+	pop ecx
+
+	ret
+;============================================================================
+;   显示一个整形数
+;----------------------------------------------------------------------------
+PrintInt:
+    mov	ah, 0Fh			; 0000b: 黑底    1111b: 白字
+    mov	al, '0'
+    push	edi
+    mov	edi, [ddDispPosition]
+    mov	[gs:edi], ax
+    add edi, 2
+    mov	al, 'x'
+    mov	[gs:edi], ax
+    add	edi, 2
+    mov	[ddDispPosition], edi	; 显示完毕后，设置新的显示位置
+    pop edi
+
+	mov	eax, [esp + 4]
+	shr	eax, 24
+	call	PrintAl
+
+	mov	eax, [esp + 4]
+	shr	eax, 16
+	call	PrintAl
+
+	mov	eax, [esp + 4]
+	shr	eax, 8
+	call	PrintAl
+
+	mov	eax, [esp + 4]
+	call	PrintAl
+
+	ret
 ;============================================================================
 ;   32位数据段
 ;----------------------------------------------------------------------------
@@ -393,24 +570,40 @@ PM_32_START:            ; 跳转到这里，说明已经进入32位保护模式
 align 32
 DATA32:
 ;----------------------------------------------------------------------------
-;   16位实模式下的数据地址符号
+;   16位实模式下使用的数据地址
 ;----------------------------------------------------------------------------
-_ddMCRCount:        dd 0        ; 检查完成的ADRS的数量，为0则代表检查失败
+; 字符串 ---
+_strMemSize:        db "Memory Size: ", 0
+_strKB:             db "KB", 10, 0
+; 变量 ---
+_ddMCRCount:        dd 0        ; 检查完成的ARDS的数量，为0则代表检查失败
 _ddMemSize:         dd 0        ; 内存大小
+_ddDispPosition:    dd (80 * 4 + 0) * 2 ; 初始化显示位置为第 4 行第 0 列
 ; 地址范围描述符结构(Address Range Descriptor Structure)
-_ADRS:
+_ARDS:
     _ddBaseAddrLow:  dd 0        ; 基地址低32位
     _ddBaseAddrHigh: dd 0        ; 基地址高32位
     _ddLengthLow:    dd 0        ; 内存长度（字节）低32位
     _ddLengthHigh:   dd 0        ; 内存长度（字节）高32位
-    _ddType:         dd 0        ; ADRS的类型，用于判断是否可以被OS使用
-; 内存检查结果缓冲区，用于存放没存检查的ADRS结构，256字节是为了对齐32位，256/20=12.8
-; ，所以这个缓冲区可以存放12个ADRS。
+    _ddType:         dd 0        ; ARDS的类型，用于判断是否可以被OS使用
+; 内存检查结果缓冲区，用于存放没存检查的ARDS结构，256字节是为了对齐32位，256/20=12.8
+; ，所以这个缓冲区可以存放12个ARDS。
 _MemChkBuf:          times 256 db 0
 ;----------------------------------------------------------------------------
-;   32位模式下的数据地址符号
-;----------------------------------------------------------------------------
+;   32位保护模式下的数据地址符号
+strMemSize          equ LOADER_PHY_ADDR + _strMemSize
+strKB               equ LOADER_PHY_ADDR + _strKB
 
+ddMCRCount          equ LOADER_PHY_ADDR + _ddMCRCount
+ddMemSize           equ LOADER_PHY_ADDR + _ddMemSize
+ddDispPosition      equ LOADER_PHY_ADDR + _ddDispPosition
+ARDS                equ LOADER_PHY_ADDR + _ARDS
+    ddBaseAddrLow   equ LOADER_PHY_ADDR + _ddBaseAddrLow
+    ddBaseAddrHigh  equ LOADER_PHY_ADDR + _ddBaseAddrHigh
+    ddLengthLow     equ LOADER_PHY_ADDR + _ddLengthLow
+    ddLengthHigh    equ LOADER_PHY_ADDR + _ddLengthHigh
+    ddType          equ LOADER_PHY_ADDR + _ddType
+MemChkBuf           equ LOADER_PHY_ADDR + _MemChkBuf
 ; 堆栈就在数据段的末尾，一共给这个32位代码段堆栈分配4KB
 StackSpace: times 0x1000    db 0
 TopOfStack  equ LOADER_PHY_ADDR + $     ; 栈顶
