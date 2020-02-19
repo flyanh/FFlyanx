@@ -228,130 +228,9 @@ Message:		    db	"Loading..."    ; 10, 不够则用空格补齐. 序号 0
                     db  "Too large!"    ; 序号3
                     db  "NO KERNEL!"    ; 序号4
 ;============================================================================
+;   32位支持函数库
 ;----------------------------------------------------------------------------
-; 函数名: DispStr
-;----------------------------------------------------------------------------
-; 作用:
-;	显示一个字符串, 函数开始时 dh 中应该是字符串序号(0-based)
-DispStr:
-	mov	ax, MessageLength
-	mul	dh
-	add dh, 2           ; 在引导程序的输出下面开始显示
-	add	ax, Message
-	mov	bp, ax			; ┓
-	mov	ax, ds			; ┣ ES:BP = 串地址
-	mov	es, ax			; ┛
-	mov	cx, MessageLength	; CX = 串长度
-	mov	ax, 01301h		; AH = 13,  AL = 01h
-	mov	bx, 0007h		; 页号为0(BH = 0) 黑底白字(BL = 07h)
-	mov	dl, 0
-	int	10h			; int 10h
-	ret
-;============================================================================
-;----------------------------------------------------------------------------
-; 函数名: ReadSector
-;----------------------------------------------------------------------------
-; 作用:
-;	从第 ax 个 Sector 开始, 将 cl 个 Sector 读入 es:bx 中
-ReadSector:
-	; -----------------------------------------------------------------------
-	; 怎样由扇区号求扇区在磁盘中的位置 (扇区号 -> 柱面号, 起始扇区, 磁头号)
-	; -----------------------------------------------------------------------
-	; 设扇区号为 x
-	;                           ┌ 柱面号 = y >> 1
-	;       x           ┌ 商 y ┤
-	; -------------- => ┤      └ 磁头号 = y & 1
-	;  每磁道扇区数       │
-	;                   └ 余 z => 起始扇区号 = z + 1
-	push	bp
-	mov	bp, sp
-	sub	esp, 2			; 辟出两个字节的堆栈区域保存要读的扇区数: byte [bp-2]
-
-	mov	byte [bp-2], cl
-	push	bx			; 保存 bx
-	mov	bl, [BPB_SecPerTrk]	; bl: 除数
-	div	bl			; y 在 al 中, z 在 ah 中
-	inc	ah			; z ++
-	mov	cl, ah			; cl <- 起始扇区号
-	mov	dh, al			; dh <- y
-	shr	al, 1			; y >> 1 (其实是 y/BPB_NumHeads, 这里BPB_NumHeads=2)
-	mov	ch, al			; ch <- 柱面号
-	and	dh, 1			; dh & 1 = 磁头号
-	pop	bx			; 恢复 bx
-	; 至此, "柱面号, 起始扇区, 磁头号" 全部得到 ^^^^^^^^^^^^^^^^^^^^^^^^
-	mov	dl, [BS_DrvNum]		; 驱动器号 (0 表示 A 盘)
-.GoOnReading:
-	mov	ah, 2				; 读
-	mov	al, byte [bp-2]		; 读 al 个扇区
-	int	13h
-	jc	.GoOnReading		; 如果读取错误 CF 会被置为 1, 这时就不停地读, 直到正确为止
-
-	add	esp, 2
-	pop	bp
-
-	ret
-;============================================================================
-; 作用：找到簇号为 ax 在 FAT 中的条目，然后将结果放入 ax 中。
-; 注意：中间我们需要加载 FAT表的扇区到es:bx处，所以我们需要先保存es:bx
-GET_FATEntry:
-    push es
-    push bx
-
-    ; 在加载的段地址处开辟出新的空间用于存放加载的FAT表
-    push ax
-    mov ax, KERNEL_SEG - 0x100
-    mov es, ax
-    pop ax
-
-    ; 首先计算出簇号在FAT中的字节偏移量，然后还需要计算出该簇号的奇偶性、
-    ; 偏移值: 簇号 * 3 / 2 的商，因为3个字节表示2个簇，所以字节和簇之间的比例就是3:2。
-    mov byte [isOdd], 0     ; isOdd = FALSE
-    mov bx, 3               ; bx = 3
-    mul bx                  ; ax * 3 --> dx存放高8位，ax存放低8位
-    mov bx, 2               ; bx = 2
-    div bx                  ; dx:ax / 2 --> ax存放商，dx存放余数。
-    cmp dx, 0
-    je EVEN
-    mov byte [isOdd], 1     ; isOdd = TRUE
-EVEN:       ; 偶数
-    ; FAT表占 9个扇区 ， 簇号 5 ， 5 / 512 -- 0 .. 5， FAT表中的0扇区， FAT表0扇区中这个簇号所在偏移是5
-    ; 570   570 / 512 -- 1 .. 58， FAT表中的1扇区， FAT表1扇区中这个簇号所在偏移是58
-    xor dx, dx              ; dx = 0
-    mov bx, [BPB_BytsPerSec]; bx = 每扇区字节数
-    div bx                  ; dx:ax / 每扇区字节数，ax(商)存放FAT项相对于FAT表中的扇区号，
-                            ; dx(余数)FAT项在相对于FAT表中的扇区的偏移。
-    push dx                 ; 保存FAT项在相对于FAT表中的扇区的偏移。
-    mov bx, 0               ; bx = 0，es:bx --> (KERNEL_SEG - 0x100):0
-    add ax, SectorNoOfFAT1  ; 此句执行之后的 ax 就是 FATEntry 所在的扇区号
-    mov cl, 2               ; 读取两个扇区
-    call ReadSector         ; 一次读两个，避免发生边界错误问题，因为一个FAT项可能会跨越两个扇区
-    pop dx                  ; 恢复FAT项在相对于FAT表中的扇区的偏移。
-    add bx, dx              ; bx += FAT项在相对于FAT表中的扇区的偏移，得到FAT项在内存中的偏移地址，因为已经将扇区读取到内存中
-    mov ax, [es:bx]         ; ax = 簇号对应的FAT项，但还没完成
-    cmp byte [isOdd], 1
-    jne EVEN_2
-    ; 奇数FAT项处理
-    shr ax, 4               ; 需要将低四位清零（他是上一个FAT项的高四位）
-    jmp GET_FATEntry_OK
-EVEN_2:         ; 偶数FAT项处理
-    and ax, 0xfff   ; 需要将高四位清零（它是下一个FAT项的低四位）
-GET_FATEntry_OK:
-	pop bx
-	pop es
-    ret
- ;============================================================================
- ;----------------------------------------------------------------------------
- ; 函数名: KillMotor
- ;----------------------------------------------------------------------------
- ; 作用:
- ;	关闭软驱马达，有时候软驱读取完如果不关闭马达，马达会持续运行且发出声音
- KillMotor:
- 	push	dx
- 	mov	dx, 03F2h
- 	mov	al, 0
- 	out	dx, al
- 	pop	dx
- 	ret
+%include "loader_16lib.inc"
 ;============================================================================
 ;============================================================================
 ;   32位代码段
@@ -373,196 +252,15 @@ PM_32_START:            ; 跳转到这里，说明已经进入32位保护模式
     call CalcMemSize
     ; 打印内存信息
     call PrintMemSize
+    ; 启动分页机制
+    call SetupPaging
 
     ; 死循环
     jmp $
 ;============================================================================
-;   计算内存大小
-; 本函数根据之前保存的ARDS，计算内存总大小并保存起来
+;   32位支持函数库
 ;----------------------------------------------------------------------------
-CalcMemSize:
-    push esi
-    push ecx
-    push edx
-    push edi
-
-    mov esi, MemChkBuf      ; ds:esi -> 缓冲区
-    mov ecx, [ddMCRCount]   ; ecx = 有多少个ARDS，记为i
-.loop:
-    mov edx, 5              ; ARDS有5个成员变量，记为j
-    mov edi, ARDS           ; ds:edi -> 一个ARDS结构
-.1: ; 将缓冲区中的第 i 个ARDS结构拷贝到ds:edi中的ARDS结构
-    push dword [esi]
-    pop eax                 ; ds:eax -> 缓冲区中的第一个ADRS结构
-    stosd                   ; 将ds:eax中的一个dword内容拷贝到ds:edi中，填充ADRS结构
-    add esi, 4              ; ds:esi指向ARDS中的下一个成员变量
-    dec edx                 ; j--
-    cmp edx, 0
-    jnz .1                  ; j != 0，继续填充
-    ; j == 0，ARDS结构填充完毕
-    cmp dword [ddType], 1
-    jne .2                  ; 不是OS可使用的内存范围，直接进入下个外循环看下一个ARDS
-    ; 是OS可用的地址范围，我们计算这个ARDS的内存大小
-    mov eax, [ddBaseAddrLow]; eax = 基地址低32位
-    add eax, [ddLengthLow]  ; eax = 基地址低32位 + 长度低32位 --> 这个ARDS结构的指代的内存大小
-                            ; 为什么不算高32为？因为32位既可以表示0~4G的内存范围，而32位CPU也只能识别0~4G
-                            ; 我们编写的是32位操作系统，所以高32位是为64位操作系统做准备的，我们不需要。
-    cmp eax, [ddMemSize]
-    jb .2
-    mov dword [ddMemSize], eax  ; 内存大小 = 最后一个基地址最大的ARDS的  基地址低32位 + 长度低32位
-.2:
-    loop .loop              ; jmp .loop, ecx--
-
-    pop edi
-    pop edx
-    pop ecx
-    pop esi
-    ret
-;============================================================================
-;   打印内存大小(以KB显示)
-;----------------------------------------------------------------------------
-PrintMemSize:
-    push ebx
-    push ecx
-
-    mov eax, [ddMemSize]    ; eax = 内存大小
-    xor edx, edx
-    mov ebx, 1024
-    div ebx                 ; eax / 1024 --> 内存大小(字节) / 1024 = 内存大小(KB)
-
-    push eax                ; 保存计算好的内存大小
-    ; 显示一个字符串"Memory Size: "
-    push strMemSize
-    call Print
-    add esp, 4
-
-;    ; 因为之前已经压入eax了，不需要再压入！
-    call PrintInt
-    add esp, 4
-
-    ; 打印"KB"
-    push strKB
-    call Print
-    add esp, 4
-
-    pop ecx
-    pop ebx
-    ret
-;============================================================================
-;   打印函数，它类似与C语言中的printf，但它不支持'%'可变参数
-; 函数原型：Print(void* ds:ptr)，ptr指向要打印的字符串，字符串以0结尾
-;----------------------------------------------------------------------------
-Print:
-    push esi
-    push edi
-    push ebx
-    push ecx
-    push edx
-
-    mov esi, [esp + 4 * 6]      ; 得到字符串地址
-    mov edi, [ddDispPosition]   ; 得到显示位置
-    mov ah, 0xf                 ; 黑底白字
-.1:
-    lodsb                       ; ds:esi -> al, esi++
-    test al, al
-    jz .PrintEnd                ; 遇到了0，结束打印
-    cmp al, 10
-    je .2
-    ; 如果不是0，也不是'\n'，那么我们认为它是一个可打印的普通字符
-    mov [gs:edi], ax
-    add edi, 2                  ; 指向下一列
-    jmp .1
-.2: ; 处理换行符'\n'
-    push eax
-    mov eax, edi                ; eax = 显示位置
-    mov bl, 160
-    div bl                      ; 显示位置 / 160，商eax就是当前所在行数
-    inc eax                     ; 行数++
-    mov bl, 160
-    mul bl                      ; 行数 * 160，得出这行的显示位置
-    mov edi, eax                ; edi = 新的显示位置
-    pop eax
-    jmp .1
-.PrintEnd:
-    mov dword [ddDispPosition], edi ; 打印完毕，更新显示位置
-
-    pop edx
-    pop ecx
-    pop edx
-    pop edi
-    pop esi
-    ret
-;============================================================================
-;   显示 AL 中的数字
-;----------------------------------------------------------------------------
-PrintAl:
-	push ecx
-	push edx
-	push edi
-	push eax
-
-	mov edi, [ddDispPosition]	; 得到显示位置
-
-	mov ah, 0Fh		; 0000b: 黑底	1111b: 白字
-	mov dl, al
-	shr al, 4
-	mov ecx, 2
-.begin:
-	and al, 01111b
-	cmp al, 9
-	ja	.1
-	add al, '0'
-	jmp	.2
-.1:
-	sub al, 10
-	add al, 'A'
-.2:
-	mov [gs:edi], ax
-	add edi, 2
-
-	mov al, dl
-	loop .begin
-
-	mov [ddDispPosition], edi	; 显示完毕后，设置新的显示位置
-
-    pop eax
-	pop edi
-	pop edx
-	pop ecx
-
-	ret
-;============================================================================
-;   显示一个整形数
-;----------------------------------------------------------------------------
-PrintInt:
-    mov	ah, 0Fh			; 0000b: 黑底    1111b: 白字
-    mov	al, '0'
-    push	edi
-    mov	edi, [ddDispPosition]
-    mov	[gs:edi], ax
-    add edi, 2
-    mov	al, 'x'
-    mov	[gs:edi], ax
-    add	edi, 2
-    mov	[ddDispPosition], edi	; 显示完毕后，设置新的显示位置
-    pop edi
-
-	mov	eax, [esp + 4]
-	shr	eax, 24
-	call	PrintAl
-
-	mov	eax, [esp + 4]
-	shr	eax, 16
-	call	PrintAl
-
-	mov	eax, [esp + 4]
-	shr	eax, 8
-	call	PrintAl
-
-	mov	eax, [esp + 4]
-	call	PrintAl
-
-	ret
+%include "loader_32lib.inc"
 ;============================================================================
 ;   32位数据段
 ;----------------------------------------------------------------------------
@@ -575,6 +273,7 @@ DATA32:
 ; 字符串 ---
 _strMemSize:        db "Memory Size: ", 0
 _strKB:             db "KB", 10, 0
+_strSetupPaging:    db "Setup paging.", 10, 0
 ; 变量 ---
 _ddMCRCount:        dd 0        ; 检查完成的ARDS的数量，为0则代表检查失败
 _ddMemSize:         dd 0        ; 内存大小
@@ -593,6 +292,7 @@ _MemChkBuf:          times 256 db 0
 ;   32位保护模式下的数据地址符号
 strMemSize          equ LOADER_PHY_ADDR + _strMemSize
 strKB               equ LOADER_PHY_ADDR + _strKB
+strSetupPaging               equ LOADER_PHY_ADDR + _strSetupPaging
 
 ddMCRCount          equ LOADER_PHY_ADDR + _ddMCRCount
 ddMemSize           equ LOADER_PHY_ADDR + _ddMemSize
