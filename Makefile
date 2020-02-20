@@ -6,12 +6,30 @@
 # gitee: https://gitee.com/flyanh/
 # Makefile文件包含如何编译工程的规则
 #============================================================================
+#   Flyanx内核的内存挂载点
+#----------------------------------------------------------------------------
+# 这个值必须存在且相等在文件"load.inc"中的 'KERNEL_ENTRY_POINT_PHY_ADDR'！
+ENTRY_POINT     = 0x1000
+#============================================================================
 #   变量
 #----------------------------------------------------------------------------
+
+# C文件所在目录
+sk = src/kernel
+sog = src/origin
+smm = src/mm
+sfs = src/fs
+sfly = src/fly
+
 # 编译链接中间目录
 t = target
 tb = $t/boot
 tk = $t/kernel
+tl = $t/lib
+tog = $t/origin
+tmm = $t/mm
+tfs = $t/fs
+tfly = $t/fly
 
 # 所需软盘镜像，可以指定已存在的软盘镜像，系统内核将被写入到这里
 FD = Flyanx.img
@@ -23,12 +41,24 @@ ImgMountPoint = /media/floppyDisk
 
 # 所需要的编译器以及编译参数
 ASM             = nasm
-ASMFlagsOfBoot  = -I src/boot/include/
+DASM            = objdump
 CC              = gcc
+LD              = ld
+ASMFlagsOfBoot  = -I src/boot/include/
+ASMFlagsOfKernel= -f elf -I $(sk)/
+CFlags          = -c -fno-builtin -Wall
+LDFlags         = -Ttext $(ENTRY_POINT) -Map kernel.map
+DASMFlags       = -D
 #============================================================================
 #   目标程序以及编译的中间文件
 #----------------------------------------------------------------------------
 FlyanxBoot      = $(tb)/boot.bin $(tb)/loader.bin
+FlyanxKernel    = $(tk)/kernel.bin
+
+# 内核，只实现基本功能
+KernelObjs      = $(tk)/kernel.o $(tk)/main.o $(tk)/kernel_386lib.o
+
+Objs            = $(KernelObjs)
 #============================================================================
 #   所有的功能伪命令
 #----------------------------------------------------------------------------
@@ -43,7 +73,7 @@ nop:
 	@echo "realclean        完全清理：清理所有的中间编译文件以及生成的目标文件（二进制文件）	"
 
 # 编译所有文件
-all: $(FlyanxBoot)
+all: $(FlyanxBoot) $(FlyanxKernel)
 
 # 生成系统镜像文件
 image: $(FD) $(FlyanxBoot)
@@ -63,11 +93,11 @@ run: $(FD)
 
 # 清理所有的中间编译文件
 clean:
-	@echo ""
+	-rm -f $(Objs)
 
 # 完全清理：清理所有的中间编译文件以及生成的目标文件（二进制文件）
 realclean: clean
-	-rm -f $(FlyanxBoot)
+	-rm -f $(FlyanxBoot) $(FlyanxKernel)
 #============================================================================
 #   目标文件生成规则
 #----------------------------------------------------------------------------
@@ -86,10 +116,21 @@ $(tb)/loader.bin: src/boot/include/load.inc
 $(tb)/loader.bin: src/boot/loader.asm
 	$(ASM) $(ASMFlagsOfBoot) -o $@ $<
 
+# 内核
+$(FlyanxKernel): $(Objs)
+	$(LD) $(LDFlags) -o $(FlyanxKernel) $^
+
 #============================================================================
 #   中间Obj文件生成规则
 #----------------------------------------------------------------------------
+$(tk)/kernel.o: $(sk)/kernel.asm
+	$(ASM) $(ASMFlagsOfKernel) -o $@ $<
 
+$(tk)/main.o: $(sk)/main.c
+	$(CC) $(CFlags) -o $@ $<
+
+$(tk)/kernel_386lib.o: $(sk)/kernel_386lib.asm
+	$(ASM) $(ASMFlagsOfKernel) -o $@ $<
 
 
 #============================================================================

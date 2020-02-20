@@ -136,11 +136,8 @@ SetupPaging:
 Print:
     push esi
     push edi
-    push ebx
-    push ecx
-    push edx
 
-    mov esi, [esp + 4 * 6]      ; 得到字符串地址
+    mov esi, [esp + 4 * 3]      ; 得到字符串地址
     mov edi, [ddDispPosition]   ; 得到显示位置
     mov ah, 0xf                 ; 黑底白字
 .1:
@@ -167,9 +164,6 @@ Print:
 .PrintEnd:
     mov dword [ddDispPosition], edi ; 打印完毕，更新显示位置
 
-    pop edx
-    pop ecx
-    pop edx
     pop edi
     pop esi
     ret
