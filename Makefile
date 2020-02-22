@@ -80,6 +80,7 @@ image: $(FD) $(FlyanxBoot)
 	dd if=$(tb)/boot.bin of=$(FD) bs=512 count=1 conv=notrunc
 	sudo mount -o loop $(FD) $(ImgMountPoint)
 	sudo cp -fv $(tb)/loader.bin $(ImgMountPoint)
+	sudo cp -fv $(FlyanxKernel) $(ImgMountPoint)
 	sudo umount $(ImgMountPoint)
 
 # 打开 bochs 进行系统的运行和调试

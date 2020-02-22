@@ -238,4 +238,69 @@ PrintInt:
 	call	PrintAl
 
 	ret
+;============================================================================
+;   内存拷贝，仿C语言memcpy
+; 函数原型：
+;   void *MemCpy(void *es:dest, void *ds:src, int size)
+; 参数：
+;   dest    目的地地址
+;   src     源数据地址
+;   size    要拷贝的数据量
+; 返回值：
+;   拷贝完成后的新数据的地址
+;----------------------------------------------------------------------------
+MemCpy:
+    push esi
+    push edi
+    push ecx
 
+    mov edi, [esp + 4 * 4]      ; edi = dest
+    mov esi, [esp + 4 * 5]      ; esi = src
+    mov ecx, [esp + 4 * 6]      ; ecx = size
+.Copy:
+    cmp ecx, 0
+    jz .CpyEnd                  ; eax == 0，拷贝结束
+    ; eax != 0，继续拷贝下一个字节
+    mov al, [ds:esi]            ; 拷贝一字节给al
+    inc esi                     ; esi++，指向下一个要拷贝的字节
+    mov [es:edi], al            ; 拷贝al字节给目的地
+    inc edi
+
+    loop .Copy                  ; 循环拷贝，直至ecx == 0
+.CpyEnd:
+    mov eax, [esp + 4 * 4]      ; 设置返回值
+
+    pop ecx
+    pop edi
+    pop esi
+    ret
+;============================================================================
+;   初始化内核
+; 将 KERNEL.BIN 的内容经过调整对齐之后放到内核挂载点处
+; 我们通过遍历 Program Header，根据 Program Header 中的信息来确定把什么放入内存，放到什么位置，以及要放多少
+;----------------------------------------------------------------------------
+InitKernelFile:
+    xor esi, esi
+    xor ecx, ecx
+    mov cx, word [KERNEL_PHY_ADDR + 44]     ; cx = e_phnum(Program Header的数量)
+    mov esi, [KERNEL_PHY_ADDR + 28]         ; esi = e_phoff(Program header table在文件中的偏移)
+    add esi, KERNEL_PHY_ADDR                ; ds:esi -> 第一个 Program header
+.Begin:
+    mov eax, [esi + 0]                      ; eax -> p_type(段类型)
+    cmp eax, 0
+    jz .NoAction                            ; p_type == 0，是一个不可用的段
+    ; p_type != 0，是一个可用的段
+    push dword [esi + 16]                   ; 压入p_filesz（段在文件中的长度），作为MemCpy的最后一个参数size
+    mov eax, [esi + 4]                      ; eax = p_offset，段的第一个字节在文件中的偏移
+    add eax, KERNEL_PHY_ADDR                ; eax -> 段第一个字节
+    push eax                                ; 压入段第一个字节的地址，作为MemCpy的src参数
+    push dword [esi + 8]                    ; 压入p_vaddr（段的第一个字节在内存中的虚拟地址），作为MemCpy的dest参数
+    call MemCpy                             ; 开始拷贝
+    add esp, 4 * 3                          ; 清理堆栈
+.NoAction:
+    add esi, 32                             ; esi += Program header结构大小
+    dec ecx
+    cmp ecx, 0
+    jnz .Begin                              ; 继续看下一个Program header
+
+    ret
