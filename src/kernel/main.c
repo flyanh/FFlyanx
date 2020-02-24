@@ -11,8 +11,7 @@
  *  - flyanx_main:      flyanx的主程序
  */
 
-int display_position = (80 * 6 + 0) * 2;     // 从第 6 行第 0 列开始显示
-void low_print(char* str);
+#include "kernel.h"
 
 void flyanx_main(void){
 

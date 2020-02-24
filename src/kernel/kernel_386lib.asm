@@ -15,11 +15,46 @@ extern display_position
 
 ; 导出函数
 global low_print
+global phys_copy
+;*===========================================================================*
+;*				phys_copy				     *
+;*===========================================================================*
+; PUBLIC void phys_copy(phys_bytes src, phys_bytes dest,
+;			phys_bytes size);
+;* 将物理内存中任意处的一个数据块拷贝到任意的另外一处 *
+;* 参数中的两个地址都是绝对地址，也就是地址0确实表示整个地址空间的第一个字节， *
+;* 并且三个参数均为无符号长整数 *
+PC_ARGS     equ     16    ; 用于到达复制的参数堆栈的栈顶
+align 16
+phys_copy:
+    push esi
+    push edi
+    push es
 
+    ; 获得所有参数
+    mov esi, [esp + PC_ARGS]            ; src
+    mov edi, [esp + PC_ARGS + 4]        ; dest
+    mov ecx, [esp + PC_ARGS + 4 + 4]    ; size
+    ; 注：因为得到的就是物理地址，所以esi和edi无需再转换，直接就表示一个真实的位置。
+phys_copy_start:
+    cmp ecx, 0              ; 判断size
+    jz phys_copy_end        ; if( size == 0 ); jmp phys_copy_end
+    mov al, [esi]
+    inc esi
+    mov byte [edi], al
+    inc edi
+    dec ecx                 ; size--
+    jmp phys_copy_start
+phys_copy_end:
+    pop es
+    pop edi
+    pop esi
+    ret
 ;============================================================================
 ;   打印函数，它类似与C语言中的printf，但它不支持'%'可变参数
 ; 函数原型：void low_print(char* str)，字符串以0结尾
 ;----------------------------------------------------------------------------
+align 16
 low_print:
     push esi
     push edi

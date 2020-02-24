@@ -14,12 +14,23 @@ ENTRY_POINT     = 0x1000
 #   变量
 #----------------------------------------------------------------------------
 
+# 头文件目录
+u = /usr
+i = include
+h = $i/flyanx
+s = $i/sys
+b = $i/ibm
+l = $i/lib
+
 # C文件所在目录
 sk = src/kernel
 sog = src/origin
 smm = src/mm
 sfs = src/fs
 sfly = src/fly
+
+# 库文件所在目录
+lansi = src/lib/ansi
 
 # 编译链接中间目录
 t = target
@@ -46,7 +57,7 @@ CC              = gcc
 LD              = ld
 ASMFlagsOfBoot  = -I src/boot/include/
 ASMFlagsOfKernel= -f elf -I $(sk)/
-CFlags          = -c -fno-builtin -Wall
+CFlags          = -c -I$i -fno-builtin -Wall
 LDFlags         = -Ttext $(ENTRY_POINT) -Map kernel.map
 DASMFlags       = -D
 #============================================================================
@@ -56,9 +67,15 @@ FlyanxBoot      = $(tb)/boot.bin $(tb)/loader.bin
 FlyanxKernel    = $(tk)/kernel.bin
 
 # 内核，只实现基本功能
-KernelObjs      = $(tk)/kernel.o $(tk)/main.o $(tk)/kernel_386lib.o
+KernelObjs      = $(tk)/kernel.o $(tk)/main.o $(tk)/kernel_386lib.o $(tk)/protect.o \
+                  $(tk)/table.o $(tk)/start.o
 
-Objs            = $(KernelObjs)
+# 内核之外所需要的库，有系统库，也有提供给用户使用的库
+LibObjs         = $(AnsiObjs)
+AnsiObjs        = $(tl)/ansi/string.o $(tl)/ansi/memcmp.o $(tl)/ansi/stringc.o
+
+
+Objs            = $(KernelObjs) $(LibObjs)
 #============================================================================
 #   所有的功能伪命令
 #----------------------------------------------------------------------------
@@ -124,6 +141,7 @@ $(FlyanxKernel): $(Objs)
 #============================================================================
 #   中间Obj文件生成规则
 #----------------------------------------------------------------------------
+# ======= 内核  =======
 $(tk)/kernel.o: $(sk)/kernel.asm
 	$(ASM) $(ASMFlagsOfKernel) -o $@ $<
 
@@ -133,5 +151,23 @@ $(tk)/main.o: $(sk)/main.c
 $(tk)/kernel_386lib.o: $(sk)/kernel_386lib.asm
 	$(ASM) $(ASMFlagsOfKernel) -o $@ $<
 
+$(tk)/start.o: $(sk)/start.c
+	$(CC) $(CFlags) -o $@ $<
+
+$(tk)/protect.o: $(sk)/protect.c
+	$(CC) $(CFlags) -o $@ $<
+
+$(tk)/table.o: $(sk)/table.c
+	$(CC) $(CFlags) -o $@ $<
+
+# ======= 库  =======
+$(tl)/ansi/string.o: $(lansi)/string.asm
+	$(ASM) $(ASMFlagsOfKernel) -o $@ $<
+
+$(tl)/ansi/memcmp.o: $(lansi)/memcmp.c
+	$(CC) $(CFlags) -o $@ $<
+
+$(tl)/ansi/stringc.o: $(lansi)/stringc.c
+	$(CC) $(CFlags) -o $@ $<
 
 #============================================================================
