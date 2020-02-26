@@ -29,31 +29,30 @@ PUBLIC Tss_t tss;
  *=========================================================================*/
 PUBLIC void protect_init(void){
 
-    /* 首先，将 LOADER 中的 GDT 复制到内核中新的 GDT 中 */
-    phys_copy((phys_bytes)(*((u32_t*)(&gdt_ptr[2]))),       /* LOADER中旧的GDT基地址 */
-              (phys_bytes)&gdt,                                  /* 新的GDT地址 */
-              (phys_bytes)(*(u16_t*)((&gdt_ptr[0])) + 1)); /* 旧的GDT大小：界限 + 1 */
+    /* 首先，将 LOADER 中的 GDT 拷贝到内核中新的 GDT 中  */
+    phys_copy(*((u32_t *)vir2phys(&gdt_ptr[2])),            // src:LOADER中旧的GDT基地址
+            vir2phys(&gdt),                                // dest:新的GDT基地址
+            *((u16_t*)vir2phys(&gdt_ptr[0])) + 1           // size:旧GDT的段界限 + 1
+            );
     /* 算出新 GDT 的基地址和界限，设置新的 gdt_ptr */
-    u16_t* p_gdt_limit = (u16_t*)(&gdt_ptr[0]);
-    u32_t* p_gdt_base = (u32_t *)(&gdt_ptr[2]);
-    *p_gdt_limit = GDT_SIZE * DESCRIPTOR_SIZE - 1;  /* 界限：GDT大小  - 1 */
-    *p_gdt_base = (u32_t)&gdt;
-    /* 再之后，算出IDT的基地址和界限，设置新的 idt_ptr */
-    u16_t* p_idt_limit = (u16_t*)(&idt_ptr[0]);
-    u32_t* p_idt_base = (u32_t *)(&idt_ptr[2]);
-    *p_idt_limit = IDT_SIZE * sizeof(Gate_t) - 1;  /* 界限：IDT大小  - 1 */
-    *p_idt_base = (u32_t)&idt;
-    /* 接下来初始化所有的中断和异常，它们都在 IDT 中 @TODO */
+    u16_t* p_gdt_limit = (u16_t*)vir2phys(&gdt_ptr[0]);
+    u32_t* p_gdt_base = (u32_t*)vir2phys(&gdt_ptr[2]);
+    *p_gdt_limit = GDT_SIZE * DESCRIPTOR_SIZE - 1;
+    *p_gdt_base = vir2phys(&gdt);
+    /* 算出IDT的基地址和界限，设置新的 idt_ptr */
+    u16_t* p_idt_limit = (u16_t*)vir2phys(&idt_ptr[0]);
+    u32_t* p_idt_base = (u32_t*)vir2phys(&idt_ptr[2]);
+    *p_idt_limit = IDT_SIZE * sizeof(Gate_t) - 1;
+    *p_idt_base = vir2phys(&idt);
 
     /* 初始化任务状态段TSS，并为处理器寄存器和其他任务切换时应保存的信息提供空间。
      * 我们只使用了某些域的信息，这些域定义了当发生中断时在何处建立新堆栈。
      * 下面init_seg_desc的调用保证它可以用GDT进行定位。
      */
-    memset(&tss, 0, sizeof(tss));   /* 清空tss */
+    memset((void*)vir2phys(&tss), 0, sizeof(tss));
     tss.ss0 = SELECTOR_KERNEL_DS;
     init_segment_desc(&gdt[TSS_INDEX], vir2phys(&tss), sizeof(tss) - 1, DA_386TSS);
-    tss.iobase = sizeof(tss);           /* 空的I/O权限位图 */
-
+    tss.iobase = sizeof(tss);           /* 空 I/O 位图 */
 
 }
 
@@ -104,7 +103,7 @@ PRIVATE void init_gate(
 }
 
 /*=========================================================================*
- *				seg2phy				   *
+ *				seg2phys				   *
  *		由段名求其在内存中的物理地址
  *=========================================================================*/
 PUBLIC phys_bytes seg2phys(U16_t seg)

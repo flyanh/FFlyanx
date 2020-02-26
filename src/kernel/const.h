@@ -114,9 +114,9 @@
 /* 在内核中，将printf的引用指向printk，注意：还没有实现printk，那么请别在内核中使用printf */
 #define printf  printk
 
-/* 将内核空间中的地址转换为物理地址。
+/* 将内核空间中的虚拟地址转换为物理地址。
  */
-#define	vir2phys(vir) (data_base + (vir_bytes)(vir))
+#define	vir2phys(vir) ((phys_bytes)(KERNEL_DATA_SEG_BASE) + (vir_bytes)(vir))
 
 /* 秒 转化为 毫秒 */
 #define second2ms(s) (s * 1000)

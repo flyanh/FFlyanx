@@ -49,6 +49,12 @@
 #error 对不起，Flyanx暂时只支持32位编译器和32位机器！
 #endif
 
+/* 内核代码段、数据段基地址
+ * 注意：要和GDT中设置的值保持一致！
+ */
+#define KERNEL_TEXT_SEG_BASE    0
+#define KERNEL_DATA_SEG_BASE    0
+
 /* 引导参数相关信息
  * 引导参数由加载程序存储，它们应该放在内核正在运行时也不应该去覆盖的地方，
  * 因为内核可能随时使用它们。
@@ -56,7 +62,7 @@
 #define BOOT_PARAM_ADDR     0x700   /* 物理地址 */
 #define BOOT_PARAM_MAGIC    0x328   /* 引导参数魔数 */
 #define BP_MAGIC            0
-#define BP_MEMOARY_SIZE     1
+#define BP_MEMORY_SIZE      1
 #define BP_KERNEL_FILE      2
 
 /* 进程表中的用户进程的槽数，这个配置决定了flyanx能同时运行多少个用户进程。 */

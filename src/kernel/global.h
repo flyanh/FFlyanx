@@ -24,7 +24,6 @@ EXTERN u8_t idt_ptr[6];                             /* IDT指针，同上 */
 EXTERN int display_position;                        /* low_print函数需要它标识显示位置 */
 
 /* 内核内存 */
-EXTERN phys_bytes data_base;	/* 内核数据段基地址 */
 EXTERN MemoryMap_t kernel_map;  /* 内核内存映像 */
 
 /* 其他 */

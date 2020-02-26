@@ -113,7 +113,7 @@ typedef struct message_s{
 /* 内存映像
  * 这个结构能够描述一个内存块信息
  */
-typedef struct memory_map{
+typedef struct memory_map {
     phys_bytes base;    /* 这块内存的基地址 */
     phys_bytes size;    /* 这块内存有多大？ */
 } MemoryMap_t;

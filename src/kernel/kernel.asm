@@ -49,7 +49,7 @@ _start:     ; 内核程序入口
     mov ss, ax              ; es = fs = ss = 内核数据段
     mov esp, StackTop       ; 栈顶
 
-    ; 调用cstart函数做一些初始化工作，其中就包括改变gdt_ptr，让它指向新的GDT
+; 调用cstart函数做一些初始化工作，其中就包括改变gdt_ptr，让它指向新的GDT
     sgdt [gdt_ptr]          ; 将GDT指针保存到gdt_ptr中
     call cstart
     lgdt [gdt_ptr]          ; 使用新的GDT
@@ -63,6 +63,12 @@ csinit:
     xor eax, eax
     mov ax, SELECTOR_TSS
     ltr ax
+
+;    sti
+
+;    jmp 0x40:0		; 手动触发一个General Protection异常,调试异常机制
+;    ud2
+
     ; 跳入C语言编写的主函数，在这之后我们内核的开发工作主要用C开发了
     ; 这一步，我们迎来了质的飞跃，汇编虽然好，只是不够骚！
     jmp flyanx_main
