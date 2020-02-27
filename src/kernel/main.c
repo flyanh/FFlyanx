@@ -15,6 +15,13 @@
 
 void flyanx_main(void){
 
-    low_print("Hello OS!!!\n");
+    low_print("#{flyanx_main}-->Hello OS!!!\n");
+
+    /* 测试零除异常 */
+    int a = 0;
+    int b = 5 / a;
+
+    low_print("#{flyanx_main}-->test msg\n");
+
     while (1){}
 }

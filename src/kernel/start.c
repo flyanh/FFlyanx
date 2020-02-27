@@ -18,7 +18,7 @@ PUBLIC void cstart(void){
 
     /* 初始化显示位置 */
     display_position = (80 * 6 + 2 * 0) * 2;
-    low_print("-----------> cstart <--------------\n");
+    low_print("#{cstart}-->called\n");
 
     /* 建立保护机制以及中断表 */
     protect_init();
@@ -27,7 +27,7 @@ PUBLIC void cstart(void){
     u32_t* p_boot_params = (u32_t*)BOOT_PARAM_ADDR;
     if(p_boot_params[BP_MAGIC] != BOOT_PARAM_MAGIC){
         /* 魔数不对，引导参数有问题 */
-        low_print("bad boot params, please reboot...\n");
+        low_print("#{cstart}-->bad boot params, please reboot...\n");
         for(;;);
     }
     /* 魔数正常，让我们的引导参数指针指向它 */

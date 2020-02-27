@@ -68,7 +68,7 @@ FlyanxKernel    = $(tk)/kernel.bin
 
 # 内核，只实现基本功能
 KernelObjs      = $(tk)/kernel.o $(tk)/main.o $(tk)/kernel_386lib.o $(tk)/protect.o \
-                  $(tk)/table.o $(tk)/start.o
+                  $(tk)/table.o $(tk)/start.o $(tk)/exception.o
 
 # 内核之外所需要的库，有系统库，也有提供给用户使用的库
 LibObjs         = $(AnsiObjs)
@@ -158,6 +158,9 @@ $(tk)/protect.o: $(sk)/protect.c
 	$(CC) $(CFlags) -o $@ $<
 
 $(tk)/table.o: $(sk)/table.c
+	$(CC) $(CFlags) -o $@ $<
+
+$(tk)/exception.o: $(sk)/exception.c
 	$(CC) $(CFlags) -o $@ $<
 
 # ======= 库  =======

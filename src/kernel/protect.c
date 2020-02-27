@@ -23,6 +23,39 @@ PRIVATE Gate_t idt[IDT_SIZE];
 /* 任务状态段TSS(Task-State Segment) */
 PUBLIC Tss_t tss;
 
+/* 中断门信息 */
+struct gate_desc_s {
+    u8_t vector;            /* 中断向量号 */
+    int_handler_t handler;  /* 处理例程 */
+    u8_t privilege;         /* 门权限 */
+};
+
+/* 中断门信息表 */
+struct gate_desc_s int_gate_table[] = {
+        /* ************* 异常 *************** */
+        { INT_VECTOR_DIVIDE, divide_error, KERNEL_PRIVILEGE },
+        { INT_VECTOR_DEBUG, single_step_exception, KERNEL_PRIVILEGE },
+        { INT_VECTOR_NMI, nmi, KERNEL_PRIVILEGE },
+        { INT_VECTOR_BREAKPOINT, breakpoint_exception, KERNEL_PRIVILEGE },
+        { INT_VECTOR_OVERFLOW, overflow, KERNEL_PRIVILEGE },
+        { INT_VECTOR_BOUNDS, bounds_check, KERNEL_PRIVILEGE },
+        { INT_VECTOR_INVAL_OP, inval_opcode, KERNEL_PRIVILEGE },
+        { INT_VECTOR_COPROC_NOT, copr_not_available, KERNEL_PRIVILEGE },
+        { INT_VECTOR_DOUBLE_FAULT, double_fault, KERNEL_PRIVILEGE },
+        { INT_VECTOR_COPROC_SEG, copr_seg_overrun, KERNEL_PRIVILEGE },
+        { INT_VECTOR_INVAL_TSS, inval_tss, KERNEL_PRIVILEGE },
+        { INT_VECTOR_SEG_NOT, segment_not_present, KERNEL_PRIVILEGE },
+        { INT_VECTOR_STACK_FAULT, stack_exception, KERNEL_PRIVILEGE },
+        { INT_VECTOR_PROTECTION, general_protection, KERNEL_PRIVILEGE },
+        { INT_VECTOR_PAGE_FAULT, page_fault, KERNEL_PRIVILEGE },
+        { INT_VECTOR_COPROC_ERR, copr_error, KERNEL_PRIVILEGE },
+        /* ************* 硬件中断 *************** */
+
+        /* ************* 软件中断 *************** */
+};
+
+FORWARD _PROTOTYPE( void init_gate, (u8_t vector, u8_t desc_type, int_handler_t  handler, u8_t privilege) );
+
 /*=========================================================================*
  *				protect_init				   *
  *				保护模式初始化
@@ -44,6 +77,12 @@ PUBLIC void protect_init(void){
     u32_t* p_idt_base = (u32_t*)vir2phys(&idt_ptr[2]);
     *p_idt_limit = IDT_SIZE * sizeof(Gate_t) - 1;
     *p_idt_base = vir2phys(&idt);
+
+    /* 初始化所有中断门描述符到 IDT中 */
+    struct gate_desc_s* p_gate = &int_gate_table[0];
+    for(; p_gate < &int_gate_table[sizeof(int_gate_table) / sizeof(struct gate_desc_s)]; p_gate++){
+        init_gate(p_gate->vector, DA_386IGate, p_gate->handler, p_gate->privilege);
+    }
 
     /* 初始化任务状态段TSS，并为处理器寄存器和其他任务切换时应保存的信息提供空间。
      * 我们只使用了某些域的信息，这些域定义了当发生中断时在何处建立新堆栈。
@@ -79,7 +118,7 @@ PUBLIC void init_segment_desc(
 
 /*=========================================================================*
  *				init_gate				   *
- *				初始化一个 386 中断门
+ *				初始化一个 386门描述符
  *=========================================================================*/
 PRIVATE void init_gate(
         u8_t vector,

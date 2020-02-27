@@ -43,5 +43,26 @@ _PROTOTYPE( void protect_init, (void) );
 _PROTOTYPE( void phys_copy, (phys_bytes _src, phys_bytes _dest, phys_bytes _size) );
 _PROTOTYPE( void low_print, (char* _str) );
 
+/*================================================================================================*/
+/* 异常处理入口例程 */
+/*================================================================================================*/
+_PROTOTYPE( void divide_error, (void) );
+_PROTOTYPE( void single_step_exception, (void) );
+_PROTOTYPE( void nmi, (void) );
+_PROTOTYPE( void breakpoint_exception, (void) );
+_PROTOTYPE( void overflow, (void) );
+_PROTOTYPE( void bounds_check, (void) );
+_PROTOTYPE( void inval_opcode, (void) );
+_PROTOTYPE( void copr_not_available, (void) );
+_PROTOTYPE( void double_fault, (void) );
+_PROTOTYPE( void inval_tss, (void) );
+_PROTOTYPE( void copr_not_available, (void) );
+_PROTOTYPE( void segment_not_present, (void) );
+_PROTOTYPE( void stack_exception, (void) );
+_PROTOTYPE( void general_protection, (void) );
+_PROTOTYPE( void page_fault, (void) );
+_PROTOTYPE( void copr_seg_overrun, (void) );
+_PROTOTYPE( void copr_error, (void) );
+_PROTOTYPE( void divide_error, (void) );
 
 #endif //FLYANX_PROTOTYPE_H
