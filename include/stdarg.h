@@ -22,9 +22,9 @@
  * 植的方式访问所有参数？C标准定义了三个宏，程序可以使用它们来遍历参数列表。
  *
  * 这些宏的定义在此文件中给出。这三个宏是：
- *  va_start(ap, parmN)	    准备访问参数
- *	va_arg(ap, type)	      获取下一个参数值和类型
- *	va_end(ap)		          访问完成
+ *  va_start(ap, parmN)	       准备访问参数
+ *	va_arg(ap, type)	       获取下一个参数值和类型
+ *	va_end(ap)		           访问完成
  */
 
 #ifndef _STDARG_H

@@ -43,23 +43,16 @@ PUBLIC void exception_handler(
 
     /* 非屏蔽中断，我们不予理睬 */
     if(int_vector == 2){
-        low_print("!********** Got spurious NMI! **********!\n");
+        printf("!********** Got spurious NMI! **********!\n");
         return;
     }
 
-    /* 简单点，内核发生异常，我们宕机 */
+    /* 简单点，内核发生异常，我们准备宕机 */
     if(exception_table[int_vector] == NIL_PTR){
-        low_print("\n!********** Exception no exist **********!\n");
+        panic("Exception no exist", NO_NUM);
     } else {
-        low_print("\n");
-        low_print(exception_table[int_vector]);
-        low_print("\n");
+        panic(exception_table[int_vector], error_no != 0xffffffff ? error_no : NO_NUM);
     }
-    /* 有错误代码？打印它！ */
-    if(error_no != 0xffffffff){
-        low_print("!********** have error no **********!\n");
-    }
-    low_print("\n!********** Flyanx has down run, please reboot **********!\n");
 
 }
 

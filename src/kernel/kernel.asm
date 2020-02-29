@@ -24,6 +24,7 @@ extern tss                          ; 任务状态段
 
 ; 导出函数
 global _start                       ; 导出_start程序开始符号，链接器需要它
+global down_run                     ; 系统进入宕机
 ; 所有的异常处理入口
 global divide_error
 global single_step_exception
@@ -156,7 +157,12 @@ copr_error:
 exception:
 	call	exception_handler
 	add	esp, 4 * 2	    ; 让栈顶指向 EIP，堆栈中从顶向下依次是：EIP、CS、EFLAGS
-.down:
-	hlt                 ; CPU停止运转，宕机
-    jmp .down
+    ret                 ; 系统已将异常解决，继续运行！
+
+;============================================================================
+;   系统进入宕机
+;----------------------------------------------------------------------------
+down_run:
+    hlt
+    jmp down_run
 

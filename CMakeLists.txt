@@ -10,4 +10,6 @@ include_directories(HEAD "./include")
 # 将所有的可执行文件添加进跟踪列表
 add_executable(
         Flyanx ./src/kernel/main.c ./src/kernel/protect.c ./src/kernel/table.c ./src/kernel/start.c ./src/kernel/exception.c
-)
+        ./src/lib/stdio/vsprintf.c
+        src/kernel/misc.c
+        src/lib/stdio/sprintf.c)
