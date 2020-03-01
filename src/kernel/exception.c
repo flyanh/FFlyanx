@@ -4,6 +4,11 @@
  * QQ: 1341662010
  * QQ-Group:909830414
  * gitee: https://gitee.com/flyanh/
+ *
+ *  异常处理
+ *
+ * 该文件的入口点是：
+ *  - exception_handler:         异常公共处理例程，所有例程都会被中断到这
  */
 
 #include "kernel.h"
@@ -49,7 +54,7 @@ PUBLIC void exception_handler(
 
     /* 简单点，内核发生异常，我们准备宕机 */
     if(exception_table[int_vector] == NIL_PTR){
-        panic("Exception no exist", NO_NUM);
+        panic("Fount a exception, but it not in table!", NO_NUM);
     } else {
         panic(exception_table[int_vector], error_no != 0xffffffff ? error_no : NO_NUM);
     }

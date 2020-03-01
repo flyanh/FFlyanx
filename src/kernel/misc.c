@@ -5,7 +5,13 @@
  * QQ-Group:909830414
  * gitee: https://gitee.com/flyanh/
  *
- * 存放一些杂库提供给内核
+ *  包含了一些C实用程序，是内核公共的例程，这里面的例程都
+ * 不太好分类，所以被放在了这里。
+ *
+ * 该文件的入口点是：
+ *  - k_printf:         内核级打印函数，通过low_print来实现
+ *  - bad_assertion:    错误的断言处理
+ *  - bad_compare:      错误的断定比较处理
  */
 
 #include "kernel.h"
@@ -72,7 +78,7 @@ PUBLIC void bad_compare(
     printf("* panic at file://%s(%d): compare \"%s\" failed\n",
            file, line, what);
     printf("*==============================================================================*\n");
-    panic("bad_compare", NO_NUM);
+    panic("bad compare", NO_NUM);
 }
 
 
