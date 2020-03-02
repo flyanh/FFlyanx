@@ -28,13 +28,13 @@ void flyanx_main(void){
 //    int b = 5 / a;
 
     /* 测试断言 */
-    assert(1 == 3);
+//    assert(1 == 7);
 
     /* 比较测试 */
 //    compare(1, >, 3);
 
     /* 测试内核打印函数 */
-    k_printf("#{flyanx_main}-->test msg%d %x\n", 7, 0x328);
+    printf("#{flyanx_main}-->test msg%d %x\n", 7, 0x328);
 
     while (TRUE){}
 }

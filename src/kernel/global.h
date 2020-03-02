@@ -23,6 +23,9 @@ EXTERN u8_t gdt_ptr[6];                             /* GDT指针，0~15：Limit 
 EXTERN u8_t idt_ptr[6];                             /* IDT指针，同上 */
 EXTERN int display_position;                        /* low_print函数需要它标识显示位置 */
 
+/* 硬件中断请求处理例程表 */
+EXTERN irq_handler_t irq_handler_table[NR_IRQ_VECTORS];
+
 /* 内核内存 */
 EXTERN MemoryMap_t kernel_map;  /* 内核内存映像 */
 

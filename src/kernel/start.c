@@ -15,6 +15,13 @@
 
 #include "kernel.h"
 #include "protect.h"
+#include "assert.h"
+INIT_ASSERT
+
+int test_int(int irq){
+    printf("i am new int handler!\n");
+    return DISABLE;
+}
 
 /*=========================================================================*
  *				cstart				   *
@@ -29,15 +36,21 @@ PUBLIC void cstart(void){
     /* 建立保护机制以及中断表 */
     protect_init();
 
+    /* 初始化硬件中断机制 */
+    interrupt_init();
+
+    /* 测试是否能正常注册新中断处理例程 */
+    put_irq_handler(3, test_int);
+    enable_irq(3);          /* 打开 3 号中断请求 */
+
     /* 加载引导参数 */
     u32_t* p_boot_params = (u32_t*)BOOT_PARAM_ADDR;
-    if(p_boot_params[BP_MAGIC] != BOOT_PARAM_MAGIC){
-        /* 魔数不对，引导参数有问题 */
-        low_print("#{cstart}-->bad boot params, please reboot...\n");
-        for(;;);
-    }
+    /* 断言：魔数正常 */
+    assert(p_boot_params[BP_MAGIC] == BOOT_PARAM_MAGIC);
     /* 魔数正常，让我们的引导参数指针指向它 */
     boot_params = (BootParams_t*)(BOOT_PARAM_ADDR + 4);
 
 }
+
+
 

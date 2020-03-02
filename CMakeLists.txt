@@ -17,4 +17,5 @@ add_executable(
         src/lib/stdio/vsprintf.c
         src/kernel/misc.c
         src/lib/stdio/sprintf.c
+        src/kernel/i8259.c
 )

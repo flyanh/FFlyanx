@@ -48,6 +48,20 @@ _PROTOTYPE( void protect_init, (void) );
 /*================================================================================================*/
 _PROTOTYPE( void phys_copy, (phys_bytes _src, phys_bytes _dest, phys_bytes _size) );
 _PROTOTYPE( void low_print, (char* _str) );
+_PROTOTYPE( u8_t in_byte, (port_t port) );
+_PROTOTYPE( void out_byte, (port_t port, U8_t value) );
+_PROTOTYPE( u16_t in_word, (port_t port) );
+_PROTOTYPE( void out_word, (port_t port, U16_t value) );
+_PROTOTYPE(  void interrupt_lock, (void) );
+_PROTOTYPE(  void interrupt_unlock, (void) );
+_PROTOTYPE( int disable_irq, (int int_request) );
+_PROTOTYPE( void enable_irq, (int int_request) );
+
+/*================================================================================================*/
+/* i8259.c */
+/*================================================================================================*/
+_PROTOTYPE( void interrupt_init, (void) );
+_PROTOTYPE( void put_irq_handler, (int irq, irq_handler_t handler) );
 
 /*================================================================================================*/
 /* misc.c */
@@ -75,5 +89,24 @@ _PROTOTYPE( void page_fault, (void) );
 _PROTOTYPE( void copr_seg_overrun, (void) );
 _PROTOTYPE( void copr_error, (void) );
 _PROTOTYPE( void divide_error, (void) );
+/*================================================================================================*/
+/*  硬件中断处理程序。 */
+/*================================================================================================*/
+_PROTOTYPE( void	hwint00, (void) );
+_PROTOTYPE( void	hwint01, (void) );
+_PROTOTYPE( void	hwint02, (void) );
+_PROTOTYPE( void	hwint03, (void) );
+_PROTOTYPE( void	hwint04, (void) );
+_PROTOTYPE( void	hwint05, (void) );
+_PROTOTYPE( void	hwint06, (void) );
+_PROTOTYPE( void	hwint07, (void) );
+_PROTOTYPE( void	hwint08, (void) );
+_PROTOTYPE( void	hwint09, (void) );
+_PROTOTYPE( void	hwint10, (void) );
+_PROTOTYPE( void	hwint11, (void) );
+_PROTOTYPE( void	hwint12, (void) );
+_PROTOTYPE( void	hwint13, (void) );
+_PROTOTYPE( void	hwint14, (void) );
+_PROTOTYPE( void	hwint15, (void) );
 
 #endif //FLYANX_PROTOTYPE_H

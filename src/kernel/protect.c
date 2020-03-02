@@ -50,7 +50,22 @@ struct gate_desc_s int_gate_table[] = {
         { INT_VECTOR_PAGE_FAULT, page_fault, KERNEL_PRIVILEGE },
         { INT_VECTOR_COPROC_ERR, copr_error, KERNEL_PRIVILEGE },
         /* ************* 硬件中断 *************** */
-
+        { INT_VECTOR_IRQ0 + 0, hwint00, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ0 + 1, hwint01, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ0 + 2, hwint02, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ0 + 3, hwint03, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ0 + 4, hwint04, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ0 + 5, hwint05, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ0 + 6, hwint06, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ0 + 7, hwint07, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ8 + 0, hwint08, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ8 + 1, hwint09, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ8 + 2, hwint10, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ8 + 3, hwint11, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ8 + 4, hwint12, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ8 + 5, hwint13, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ8 + 6, hwint14, KERNEL_PRIVILEGE },
+        { INT_VECTOR_IRQ8 + 7, hwint15, KERNEL_PRIVILEGE },
         /* ************* 软件中断 *************** */
 };
 

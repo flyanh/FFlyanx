@@ -13,6 +13,16 @@
 ;================================================================================================
 
 
+; 硬件中断处理相关 
+INT_M_CTL           equ    0x20     ; I/O port for interrupt controller         <Master>
+INT_M_CTLMASK       equ    0x21     ; setting bits in this port disables ints   <Master>
+INT_S_CTL           equ    0xA0     ; I/O port for second interrupt controller  <Slave>
+INT_S_CTLMASK       equ    0xA1     ; setting bits in this port disables ints   <Slave>
+; 中断控制器的神奇数字EOI，可以用于控制中断的打开和关闭，当然，这个宏可以被类似功能的引用
+EOI                 equ  0x20       ; EOI，发送给8259A端口1，以重新启用中断
+DISABLE             equ  0          ; 用于在中断后保持当前中断关闭的代码
+ENABLE              equ  EOI	    ; 用于在中断后重新启用当前中断的代码
+
 ; 以下选择子值必须与 portect.h 中保持一致！
 SELECTOR_TEXT       equ 8                   ; LOADER 里面已经确定了的
 SELECTOR_DATA       equ 16                  ; LOADER 里面已经确定了的，可读写数据段
