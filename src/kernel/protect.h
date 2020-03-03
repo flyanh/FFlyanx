@@ -77,7 +77,7 @@ typedef struct tss_s
 /* 表大小 */
 /*================================================================================================*/
 #define GDT_SIZE (LDT_FIRST_INDEX + NR_TASKS + NR_PROCS) /* 全局描述符表 */
-#define IDT_SIZE (INT_VECTOR_IRQ8 + 8)	    /* 只取最高的向量 */
+#define IDT_SIZE (INT_VECTOR_IRQ8 + 8 + 1)	    /* 只取最高的向量 */
 #define LDT_SIZE         2	                /* Flyanx0.11 每个进程只有两个段，一个是正文段（代码段），
                                              * 另一个是数据段，而堆栈段则和数据段共用，以后可能会分的更
                                              * 细，但对于现在来说，这样就够了。

@@ -57,7 +57,7 @@ PUBLIC void panic(
     if(msg != NIL_PTR){
         printf("\n!***** Flyanx kernel panic: %s *****!\n", msg);
         if(error_no != NO_NUM){
-            printf("!*****     error no: %d     *****!", error_no);
+            printf("!*****     error no: 0x%x     *****!", error_no);
         }
         printf("\n");
     }
