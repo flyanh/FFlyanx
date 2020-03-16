@@ -102,9 +102,6 @@
 /* 其他的端口 */
 #define PCR		0x65			/* 平面控制寄存器 */
 #define PORT_B          0x61	/* 8255端口B的I/O端口(键盘，蜂鸣…) */
-#define TIMER0          0x40	/* 定时器通道0的I/O端口 */
-#define TIMER2          0x42	/* 定时器通道2的I/O端口 */
-#define TIMER_MODE      0x43	/* 用于定时器模式控制的I/O端口 */
 
 /* 固定系统调用向量。 */
 #define INT_VECTOR_LEVEL0           43	    /* 用于系统任务提权到0的调用向量 */

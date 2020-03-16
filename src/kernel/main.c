@@ -21,20 +21,10 @@ INIT_ASSERT             // 使用断言之前需要先初始化
  *=========================================================================*/
 void flyanx_main(void){
 
-    low_print("#{flyanx_main}-->Hello OS!!!\n");
+    printf("#{flyanx_main}-->Hello OS!!!\n");
 
-    /* 测试零除异常 */
-//    int a = 0;
-//    int b = 5 / a;
-
-    /* 测试断言 */
-//    assert(1 == 7);
-
-    /* 比较测试 */
-//    compare(1, >, 3);
-
-    /* 测试内核打印函数 */
-    printf("#{flyanx_main}-->test msg%d %x\n", 7, 0x328);
+    /* 启动时钟驱动任务 */
+    clock_task();
 
     while (TRUE){}
 }

@@ -32,7 +32,7 @@
 #define FALSE              0	/* 布尔值：假 */
 
 #define HZ	          	100		/* 时钟频率，即时钟一秒可以发出几次中断 */
-#define ONE_TICK_MILLISECOND (HZ / 10)  /* 一次滴答（中断）有多少毫秒，这个值由时钟频率决定 */
+#define ONE_TICK_MILLISECOND (1000 / HZ)  /* 一次滴答（中断）有多少毫秒，这个值由时钟频率决定 */
 #define BLOCK_SIZE      1024	/* 磁盘块中的字节量 */
 #define SUPER_USER      0	    /* 表示超级用户！ */
 

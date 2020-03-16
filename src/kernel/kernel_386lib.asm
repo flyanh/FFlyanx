@@ -106,11 +106,12 @@ low_print:
 align 16
 in_byte:
     push edx
-        mov edx, [esp + 4]      ; 得到端口号
+        mov edx, [esp + 4 * 2]      ; 得到端口号
         xor eax, eax
         in al, dx              ; port -> al
+        nop                         ; 一点延迟
     pop edx
-    nop                         ; 一点延迟
+    nop
     ret
 ;============================================================================
 ;   向一个端口输出一字节数据
@@ -119,11 +120,12 @@ in_byte:
 align 16
 out_byte:
     push edx
-        mov edx, [esp + 4]      ; 得到端口号
-        mov al, [esp + 4 * 2]   ; 要输出的字节
+        mov edx, [esp + 4 * 2]      ; 得到端口号
+        mov al, [esp + 4 * 3]   ; 要输出的字节
         out dx, al              ; al -> port
+        nop                         ; 一点延迟
     pop edx
-    nop                         ; 一点延迟
+    nop
     ret
 ;============================================================================
 ;   从一个端口读取一字数据
@@ -132,7 +134,7 @@ out_byte:
 align 16
 in_word:
     push edx
-        mov edx, [esp + 4]      ; 得到端口号
+        mov edx, [esp + 4 * 2]      ; 得到端口号
         xor eax, eax
         in ax, dx              ; port -> ax
     pop edx
@@ -145,8 +147,8 @@ in_word:
 align 16
 out_word:
     push edx
-        mov edx, [esp + 4]      ; 得到端口号
-        mov ax, [esp + 4 * 2]   ; 得到要输出的变量
+        mov edx, [esp + 4 * 2]      ; 得到端口号
+        mov ax, [esp + 4 * 3]   ; 得到要输出的变量
         out dx, ax              ; ax -> port
     pop edx
     nop                         ; 一点延迟
@@ -177,7 +179,7 @@ disable_irq:
     push ecx
 
         cli                     ; 先屏蔽所有中断
-        mov ecx, [esp + 4]      ; ecx = int_request(中断向量)
+        mov ecx, [esp + 4 * 3]  ; ecx = int_request(中断向量)
         ; 判断要关闭的中断来自于哪个 8259A
         mov ah, 1               ; ah = 00000001b
         rol ah, cl              ; ah = (1 << (int_request % 8))，算出在int_request位的置位位图，例如2的置位位图是00000100b
@@ -218,7 +220,7 @@ enable_irq:
     push ecx
 
         cli                     ; 先屏蔽所有中断
-        mov ecx, [esp + 4]      ; ecx = int_request(中断向量)
+        mov ecx, [esp + 4 * 3]  ; ecx = int_request(中断向量)
         mov ah, ~1              ; ah = 11111110b
         rol ah, cl              ; ah = ~(1 << (int_request % 8))，算出在int_request位的复位位位图，例如2的置位位图是11111011b
         cmp cl, 7
@@ -236,3 +238,4 @@ enable_ok:
       pop ecx
       popf
       ret
+

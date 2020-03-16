@@ -67,6 +67,13 @@ _PROTOTYPE( void put_irq_handler, (int irq, irq_handler_t handler) );
 /* misc.c */
 /*================================================================================================*/
 _PROTOTYPE( int k_printf, (const char* fmt, ...) );
+_PROTOTYPE( void bad_assertion, ( char *file, int line, char *what) );
+_PROTOTYPE( void bad_compare, (char *file, int line, int lhs, char *what, int rhs) );
+
+/*================================================================================================*/
+/* clock.c */
+/*================================================================================================*/
+_PROTOTYPE( void clock_task, (void) );
 
 /*================================================================================================*/
 /* 异常处理入口例程 */

@@ -18,7 +18,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-
 /*=========================================================================*
  *				k_printf				   *
  *			   内核级格式打印
@@ -29,7 +28,10 @@ PUBLIC int k_printf(
 ){
     va_list ap;
     int len;
-    char buf[STR_DEFAULT_LEN];
+    static char buf[160];   /* 这里注意：必须是静态的不然这个函数每次调用都来个
+                             * 缓冲区，内核的内存根本不够它造，很快就溢出了！
+                             * 内核的打印不会超过两行，所以 160 就够了。
+                             */
 
     /* 准备开始访问可变参数 */
     va_start(ap, fmt);

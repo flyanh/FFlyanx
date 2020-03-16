@@ -39,10 +39,6 @@ PUBLIC void cstart(void){
     /* 初始化硬件中断机制 */
     interrupt_init();
 
-    /* 测试是否能正常注册新中断处理例程 */
-    put_irq_handler(3, test_int);
-    enable_irq(3);          /* 打开 3 号中断请求 */
-
     /* 加载引导参数 */
     u32_t* p_boot_params = (u32_t*)BOOT_PARAM_ADDR;
     /* 断言：魔数正常 */
