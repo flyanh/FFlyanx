@@ -27,10 +27,14 @@ EXTERN int display_position;                        /* low_print函数需要它�
 EXTERN irq_handler_t irq_handler_table[NR_IRQ_VECTORS];
 
 /* 内核内存 */
-EXTERN MemoryMap_t kernel_map;  /* 内核内存映像 */
+EXTERN MemoryMap_t kernel_map;      /* 内核内存映像 */
+
+/* 多进程相关 */
+EXTERN struct process_s *curr_proc;  /* 当前正在运行的进程 */
 
 /* 其他 */
-EXTERN BootParams_t* boot_params;    /* 引导参数 */
+EXTERN BootParams_t* boot_params;   /* 引导参数 */
+EXTERN u8_t kernel_reenter;         /* 记录内核中断重入次数 */
 
 
 #endif // FLYANX_GLOBAL_H

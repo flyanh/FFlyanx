@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <termios.h>
 #include <flyanx/common.h>
+#include "process.h"
 
 
 

@@ -65,6 +65,7 @@
 
 /* 系统任务数量 */
 #define NR_TASKS    (0 + NR_CONTROLLERS)
+#define NR_SERVERS  0
 
 /* 内存是通过块分配的。 */
 #if (CHIP == INTEL)

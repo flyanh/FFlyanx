@@ -47,7 +47,8 @@ PUBLIC void clock_task(void){
 PRIVATE int clock_handler(int irq) {
 
     ticks++;
-    printf(">");
+    if(ticks % 100 == 0)
+        printf(">");
 
     return ENABLE;
 }

@@ -11,7 +11,31 @@
 ;================================================================================================
 ; 保护模式相关
 ;================================================================================================
-
+; Stackframe 栈帧结构中每个属性的偏移
+P_STACKBASE     equ 0               ; 栈基地址
+GSREG           equ P_STACKBASE     ; GS段寄存器
+FSREG           equ GSREG + 4       ; FS段寄存器
+ESREG           equ FSREG + 4       ; ES段寄存器
+DSREG           equ ESREG + 4       ; DS段寄存器(数据段寄存器)
+EDIREG          equ DSREG + 4       ; EDI寄存器
+ESIREG          equ EDIREG + 4      ; ESI寄存器
+EBPREG          equ ESIREG + 4      ; EBP寄存器
+KERNELESPREG    equ EBPREG + 4      ; 内核ESP寄存器
+EBXREG          equ KERNELESPREG + 4
+EDXREG          equ EBXREG + 4
+ECXREG          equ EDXREG + 4
+EAXREG          equ ECXREG + 4
+RETADDR         equ EAXREG + 4
+PCREG           equ RETADDR + 4
+CSREG           equ PCREG + 4
+PWSREG          equ CSREG + 4
+ESPREG          equ PWSREG + 4
+SSREG           equ ESPREG + 4
+P_STACKTOP      equ SSREG + 4       ; 栈顶
+P_LDT_SEL       equ P_STACKTOP      ; LDT选择子
+P_LDT           equ P_LDT_SEL + 4   ; LDT
+; TSS::SP0 的偏移
+TSS3_S_SP0      equ 4
 
 ; 硬件中断处理相关 
 INT_M_CTL           equ    0x20     ; I/O port for interrupt controller         <Master>

@@ -69,7 +69,7 @@
 #define NR_PROCS          32
 
 /* 控制器任务的数量（/dev/cN设备类）。 */
-#define NR_CONTROLLERS          1
+#define NR_CONTROLLERS          0
 
 /* 包括或排除设备驱动程序。 设置为1表示包含，设置为0表示排除。 */
 #define ENABLE_AT_WINI      1   /* AT风格的硬盘驱动程序 */
