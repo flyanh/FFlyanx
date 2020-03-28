@@ -14,15 +14,16 @@
 typedef _PROTOTYPE( void task_t, (void) );
 typedef _PROTOTYPE( void (*WatchDog), (void) );
 
-/* 任务表项定义
- * 一个表项可以存放一个系统任务，在这里我们和用户进程表项分开定义了
- * 因为他们特权级不同，待遇也不同，就这个理解就应该让我们区别对待。
+/* 系统进程表项定义
+ *
+ * 一个表项可以存放一个系统级别的进程，在这里我们和用户进程表项分开定义了
+ * 因为它们特权级不同，待遇也不同，就这个理解就应该让我们区别对待。
  */
-typedef struct tasktab_s {
-    task_t *initial_pc;         /* 系统任务的处理句柄 */
-    int     stack_size;         /* 系统任务的栈大小 */
-    char    name[16];           /* 任务名称 */
-} TaskTab;
+typedef struct sys_proc {
+    task_t *initial_eip;        /* 系统进程的处理句柄，即 eip */
+    int     stack_size;         /* 系统进程的栈大小 */
+    char    name[16];           /* 系统进程名称 */
+} SysProc_t;
 
 /* 内存区域数据结构定义
  * 定义了唯一确定一片内存区域的两个数值

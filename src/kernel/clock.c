@@ -6,6 +6,7 @@
  * gitee: https://gitee.com/flyanh/
  */
 #include "kernel.h"
+#include "process.h"
 
 /* 时钟, 8253 / 8254 PIT (可编程间隔定时器)参数 */
 #define TIMER0          0x40	/* 定时器通道0的I/O端口 */
@@ -47,8 +48,14 @@ PUBLIC void clock_task(void){
 PRIVATE int clock_handler(int irq) {
 
     ticks++;
-    if(ticks % 100 == 0)
+    if(ticks % 100 == 0){
         printf(">");
+        curr_proc++;
+        /* 超出我们的系统进程，拉回来 */
+        if(curr_proc > proc_addr(LOW_USER)) {
+            curr_proc = proc_addr(-NR_TASKS);
+        }
+    }
 
     return ENABLE;
 }

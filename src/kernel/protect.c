@@ -15,6 +15,7 @@
 
 #include "kernel.h"
 #include "protect.h"
+#include "process.h"
 
 /* 全局描述符表GDT */
 PUBLIC SegDescriptor_t gdt[GDT_SIZE];
@@ -105,10 +106,19 @@ PUBLIC void protect_init(void){
      * 我们只使用了某些域的信息，这些域定义了当发生中断时在何处建立新堆栈。
      * 下面init_seg_desc的调用保证它可以用GDT进行定位。
      */
-    memset((void*)vir2phys(&tss), 0, sizeof(tss));
+    memset(&tss, 0, sizeof(tss));
     tss.ss0 = SELECTOR_KERNEL_DS;
     init_segment_desc(&gdt[TSS_INDEX], vir2phys(&tss), sizeof(tss) - 1, DA_386TSS);
     tss.iobase = sizeof(tss);           /* 空 I/O 位图 */
+
+    /* 为每个进程分配唯一的 LDT */
+    Process_t *proc = BEG_PROC_ADDR;
+    int ldt_idx = LDT_FIRST_INDEX;
+    for(; proc < END_PROC_ADDR; proc++, ldt_idx++) {
+        memset(proc, 0, sizeof(Process_t)); /* clean */
+        init_segment_desc(&gdt[ldt_idx], vir2phys(proc->ldt), sizeof(proc->ldt) - 1, DA_LDT);
+        proc->ldt_sel = ldt_idx * DESCRIPTOR_SIZE;
+    }
 
 }
 

@@ -30,7 +30,9 @@ EXTERN irq_handler_t irq_handler_table[NR_IRQ_VECTORS];
 EXTERN MemoryMap_t kernel_map;      /* 内核内存映像 */
 
 /* 多进程相关 */
-EXTERN struct process_s *curr_proc;  /* 当前正在运行的进程 */
+EXTERN struct process_s *curr_proc; /* 当前正在运行的进程 */
+extern SysProc_t sys_proc_table[];  /* 系统进程表 */
+extern char *sys_proc_stack[];      /* 系统进程堆栈 */
 
 /* 其他 */
 EXTERN BootParams_t* boot_params;   /* 引导参数 */

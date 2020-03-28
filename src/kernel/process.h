@@ -127,7 +127,7 @@ typedef struct process_s {
 EXTERN Process_t proc_table[NR_TASKS + NR_SERVERS + NR_PROCS];
 EXTERN Process_t* p_proc_addr[NR_TASKS + NR_SERVERS + NR_PROCS]; /* 因为进程表的访问非常频繁,并且计算数组中的一个地址需要
                                                                   * 用到很慢的乘法操作, 所以使用一个指向进程表项的指针数组
-                                                                  * p_proc_addr来加快操作速度。 */
+                                                                  * p_proc_addr 来加快操作速度。 */
 
 /* bill_proc指向正在对其CPU使用计费的进程。当一个用户进程调用文件系统,而文件系统正在运行
  * 时,curr_proc(在global.h中)指向文件系统进程,但是bill_proc将指向发出该调用的用户进程。因为文件系统使用的

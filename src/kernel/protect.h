@@ -146,7 +146,7 @@ typedef struct tss_s
 
 #define SA_TI_MASK          0xFFFB
 #define SA_TIG              0
-#define SA_TIL              4
+#define SA_TIL              4       /* 选择子 */
 
 /*================================================================================================*/
 /* 描述符类型值说明，其中　DA_ : Descriptor Attribute 描述符属性 */

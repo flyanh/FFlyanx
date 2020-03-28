@@ -22,12 +22,13 @@ extern gdt_ptr                      ; GDT指针
 extern idt_ptr                      ; IDT指针
 extern tss                          ; 任务状态段
 extern irq_handler_table            ; 硬件中断请求处理例程表
-extern curr_proc
-extern kernel_reenter
+extern curr_proc                    ; 当前执行进程
+extern kernel_reenter               ; 记录内核重入次数
 
 ; 导出函数
 global _start                       ; 导出_start程序开始符号，链接器需要它
 global down_run                     ; 系统进入宕机
+global restart                      ; 进程恢复
 ; 所有的异常处理入口
 global divide_error
 global single_step_exception
@@ -148,7 +149,6 @@ csinit:
     and al, ~(1 << %1)      ; 将该中断的屏蔽位复位，表示启用它
     out INT_M_CTLMASK, al   ; 输出新的屏蔽位图，启用该中断
 .0:
-    sti
     ; 这个 ret 指令将会跳转到我们 save 中手动保存的地址，restart 或 restart_reenter
     ret
 %endmacro
@@ -214,7 +214,6 @@ hwint07:		; Interrupt routine for irq 7 (printer)，打印机中断
     and al, ~(1 <<(%1 - 8))      ; 将该中断的屏蔽位复位，表示启用它
     out INT_M_CTLMASK, al   ; 输出新的屏蔽位图，启用该中断
 .0:
-    sti
     ; 这个 ret 指令将会跳转到我们 save 中手动保存的地址，restart 或 restart_reenter
     ret
 %endmacro
@@ -254,66 +253,81 @@ hwint15:		; Interrupt routine for irq 15
 ;   异常处理
 ;----------------------------------------------------------------------------
 divide_error:
+    call save
 	push	0xffffffff	; 没有错误代码，用0xffffffff表示
 	push	0		    ; 中断向量号	= 0
 	jmp	exception
 single_step_exception:
+    call save
 	push	0xffffffff	; 没有错误代码，用0xffffffff表示
 	push	1		    ; 中断向量号	= 1
 	jmp	exception
 nmi:
+    call save
 	push	0xffffffff	; 没有错误代码，用0xffffffff表示
 	push	2		    ; 中断向量号	= 2
 	jmp	exception
 breakpoint_exception:
+    call save
 	push	0xffffffff	; 没有错误代码，用0xffffffff表示
 	push	3		    ; 中断向量号	= 3
 	jmp	exception
 overflow:
+    call save
 	push	0xffffffff	; 没有错误代码，用0xffffffff表示
 	push	4		    ; 中断向量号	= 4
 	jmp	exception
 bounds_check:
+    call save
 	push	0xffffffff	; 没有错误代码，用0xffffffff表示
 	push	5		    ; 中断向量号	= 5
 	jmp	exception
 inval_opcode:
+    call save
 	push	0xffffffff	; 没有错误代码，用0xffffffff表示
 	push	6		    ; 中断向量号	= 6
 	jmp	exception
 copr_not_available:
+    call save
 	push	0xffffffff	; 没有错误代码，用0xffffffff表示
 	push	7		    ; 中断向量号	= 7
 	jmp	exception
 double_fault:
+    call save
 	push	8		    ; 中断向量号	= 8
 	jmp	exception
 copr_seg_overrun:
+    call save
 	push	0xffffffff	; 没有错误代码，用0xffffffff表示
 	push	9		    ; 中断向量号	= 9
 	jmp	exception
 inval_tss:
+    call save
 	push	10		    ; 中断向量号	= 10
 	jmp	exception
 segment_not_present:
+    call save
 	push	11		    ; 中断向量号	= 11
 	jmp	exception
 stack_exception:
+    call save
 	push	12		    ; 中断向量号	= 12
 	jmp	exception
 general_protection:
+    call save
 	push	13		    ; 中断向量号	= 13
 	jmp	exception
 page_fault:
+    call save
 	push	14		    ; 中断向量号	= 14
 	jmp	exception
 copr_error:
+    call save
 	push	0xffffffff	; 没有错误代码，用0xffffffff表示
 	push	16		    ; 中断向量号	= 16
 	jmp	exception
 
 exception:
-    call save
 	call	exception_handler
 	add	esp, 4 * 2	    ; 让栈顶指向 EIP，堆栈中从顶向下依次是：EIP、CS、EFLAGS
     ret                 ; 系统已将异常解决，继续运行！
@@ -361,7 +375,7 @@ save:
 restart:
 	mov esp, [curr_proc - P_STACKBASE]	; 离开内核栈，指向运行进程的栈帧，现在的位置是 gs
 	lldt [esp + P_LDT_SEL]	            ; 每个进程有自己的 LDT，所以每次进程的切换都需要加载新的ldtr
-	; 把该进程栈帧外 ldt_sel 的地址保存到 tss.ss0 中，下次的 save 将保存所有寄存器到该进程的栈帧中
+	; 把该进程栈帧外 ldt_sel 的地址保存到 tss3.sp0 中，下次的 save 将保存所有寄存器到该进程的栈帧中
 	lea eax, [esp + P_STACKTOP]
 	mov dword [tss + TSS3_S_SP0], eax
 restart_reenter:

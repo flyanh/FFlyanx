@@ -112,6 +112,9 @@ run: $(FD)
 	@qemu-system-i386 -drive file=$(FD),if=floppy
 	@echo "你还可以使用Vbox等虚拟机挂载Flyanx.img软盘，即可开始运行！"
 
+# 更新映像并运行
+uprun: $(FD) image run
+
 # 清理所有的中间编译文件
 clean:
 	-rm -f $(Objs)
