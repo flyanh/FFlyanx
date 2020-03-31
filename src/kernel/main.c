@@ -95,8 +95,7 @@ void flyanx_main(void){
         proc->flags = CLEAN_MAP;
     }
 
-    /* 启动 A */
-    curr_proc = proc_addr(-2);
+    curr_proc = proc_addr(-1);
     /* 最后,main 的工作至此结束。它的工作到初始化结束为止。restart 的调用将启动第一个任务，
      * 控制权从此不再返回到main。
      *
@@ -125,9 +124,8 @@ PUBLIC void panic(
     /* 有错误消息的话，请先打印 */
     if(msg != NIL_PTR){
         printf("\n!***** Flyanx kernel panic: %s *****!\n", msg);
-        if(error_no != NO_NUM){
+        if(error_no != NO_NUM)
             printf("!*****     error no: 0x%x     *****!", error_no);
-        }
         printf("\n");
     }
     /* 好了，可以宕机了 */
@@ -135,30 +133,16 @@ PUBLIC void panic(
 }
 
 /*=========================================================================*
- *				test_task_a				   *
- *	            测试系统任务 A
+ *				idle_task				   *
+ *	            待机任务
  *=========================================================================*/
-PUBLIC void test_task_a(void) {
-    int i, j, k;
-    k = 0;
-    while (TRUE) {
-        for(i = 0; i < 100; i++)
-            for(j = 0; j < 1000000; j++) {}
-        printf("#{A}-> %d)", k++);
-    }
+PUBLIC void idle_task(void) {
+    /* 本例程是一个空循环，Flyanx 系统没有任何进程就绪时，则会调用本例程。
+     * 本例程的循环体使用了 hlt 指令，使其 CPU 暂停工作并处于待机等待状态，
+     * 不至于像传统的死循环一样，消耗大量的 CPU 资源。而且在每个待机的过程
+     * 中都会保持中断开启，保证待机时间内随时可以响应活动。
+     */
+    printf("#{IDLE}-> Working...\n");
+    while (TRUE)
+        level0(halt);
 }
-
-/*=========================================================================*
- *				test_task_a				   *
- *	            测试系统任务 B
- *=========================================================================*/
-PUBLIC void test_task_b(void) {
-    int i, j, k;
-    k = 0;
-    while (TRUE) {
-        for(i = 0; i < 100; i++)
-            for(j = 0; j < 100000; j++) {}
-        printf("#{B}-> %d)", k++);
-    }
-}
-

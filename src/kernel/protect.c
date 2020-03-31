@@ -31,9 +31,6 @@ struct gate_desc_s {
     u8_t privilege;         /* 门权限 */
 };
 
-FORWARD _PROTOTYPE( void init_gate, (u8_t vector, u8_t desc_type, int_handler_t  handler, u8_t privilege) );
-FORWARD _PROTOTYPE( void test_software_int, (void) );
-
 /* 中断门信息表 */
 struct gate_desc_s int_gate_table[] = {
         /* ************* 异常 *************** */
@@ -71,8 +68,11 @@ struct gate_desc_s int_gate_table[] = {
         { INT_VECTOR_IRQ8 + 6, hwint14, KERNEL_PRIVILEGE },
         { INT_VECTOR_IRQ8 + 7, hwint15, KERNEL_PRIVILEGE },
         /* ************* 软件中断 *************** */
-        { 48, test_software_int, KERNEL_PRIVILEGE },
+        { INT_VECTOR_LEVEL0, level0_sys_call, TASK_PRIVILEGE },     /* 提供给系统任务的系统调用：提权 */
 };
+
+/* 本地函数 */
+FORWARD _PROTOTYPE( void init_gate, (u8_t vector, u8_t desc_type, int_handler_t  handler, u8_t privilege) );
 
 /*=========================================================================*
  *				protect_init				   *
@@ -120,10 +120,6 @@ PUBLIC void protect_init(void){
         proc->ldt_sel = ldt_idx * DESCRIPTOR_SIZE;
     }
 
-}
-
-PRIVATE void test_software_int(void){
-    printf("i am a software interrupt!\n");
 }
 
 /*=========================================================================*

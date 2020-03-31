@@ -26,6 +26,8 @@
 /*================================================================================================*/
 _PROTOTYPE( void down_run, (void) );
 _PROTOTYPE( void restart, (void) );
+_PROTOTYPE( void, halt(void) );
+_PROTOTYPE( void level0_sys_call, (void) );
 
 /*================================================================================================*/
 /* start.c */
@@ -36,8 +38,7 @@ _PROTOTYPE( void cstart, (void) );
 /* main.c */
 /*================================================================================================*/
 _PROTOTYPE( void panic, (const char* msg, int error_no ) );
-_PROTOTYPE( void test_task_a, (void) );
-_PROTOTYPE( void test_task_b, (void) );
+_PROTOTYPE( void idle_task, (void) );
 
 /*================================================================================================*/
 /* protect.c */
@@ -55,10 +56,11 @@ _PROTOTYPE( u8_t in_byte, (port_t port) );
 _PROTOTYPE( void out_byte, (port_t port, U8_t value) );
 _PROTOTYPE( u16_t in_word, (port_t port) );
 _PROTOTYPE( void out_word, (port_t port, U16_t value) );
-_PROTOTYPE(  void interrupt_lock, (void) );
-_PROTOTYPE(  void interrupt_unlock, (void) );
+_PROTOTYPE( void interrupt_lock, (void) );
+_PROTOTYPE( void interrupt_unlock, (void) );
 _PROTOTYPE( int disable_irq, (int int_request) );
 _PROTOTYPE( void enable_irq, (int int_request) );
+_PROTOTYPE( void level0, (flyanx_syscall_t level0_func) );
 
 /*================================================================================================*/
 /* i8259.c */

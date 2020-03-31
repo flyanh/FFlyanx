@@ -104,8 +104,8 @@
 #define PORT_B          0x61	/* 8255端口B的I/O端口(键盘，蜂鸣…) */
 
 /* 固定系统调用向量。 */
-#define INT_VECTOR_LEVEL0           43	    /* 用于系统任务提权到0的调用向量 */
-#define INT_VECTOR_SYS_CALL         47	    /* flyanx 386系统调用向量 */
+#define INT_VECTOR_LEVEL0           0x66	    /* 用于系统任务提权到 0 的调用向量 */
+#define INT_VECTOR_SYS_CALL         0x94        /* flyanx 386 系统调用向量 */
 
 #endif /* (CHIP == INTEL) */
 

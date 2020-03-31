@@ -37,6 +37,7 @@ extern char *sys_proc_stack[];      /* 系统进程堆栈 */
 /* 其他 */
 EXTERN BootParams_t* boot_params;   /* 引导参数 */
 EXTERN u8_t kernel_reenter;         /* 记录内核中断重入次数 */
+EXTERN flyanx_syscall_t level0_func;/* 提权成功的函数指针放在这里 */
 
 
 #endif // FLYANX_GLOBAL_H

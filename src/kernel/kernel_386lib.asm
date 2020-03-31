@@ -14,6 +14,7 @@
 %include "asm_const.inc"
 ; 导入变量
 extern display_position         ; 当前显存的显示位置
+extern level0_func
 
 ; 导出函数
 global low_print                ; 低特权级打印函数，只能支持打印ASCII码
@@ -26,6 +27,7 @@ global interrupt_lock           ; 关闭中断响应，即锁中断
 global interrupt_unlock         ; 打开中断响应，即解锁中断
 global disable_irq              ; 屏蔽一个特定的中断
 global enable_irq               ; 启用一个特定的中断
+global level0
 ;*===========================================================================*
 ;*				phys_copy				     *
 ;*===========================================================================*
@@ -238,4 +240,15 @@ enable_ok:
       pop ecx
       popf
       ret
+;============================================================================
+;   将一个函数提权到 0，再进行调用
+; 函数原型： void level0(flyanx_syscall_t func);
+;----------------------------------------------------------------------------
+align 16
+level0:
+    mov eax, [esp + 4]
+    mov [level0_func], eax  ; 将提权函数指针放到 level0_func 中
+    int 0x66				; 好的，调用提权调用去执行提权成功的例程
+    ret
+
 

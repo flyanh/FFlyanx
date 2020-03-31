@@ -24,11 +24,14 @@ extern tss                          ; 任务状态段
 extern irq_handler_table            ; 硬件中断请求处理例程表
 extern curr_proc                    ; 当前执行进程
 extern kernel_reenter               ; 记录内核重入次数
+extern level0_func
 
 ; 导出函数
 global _start                       ; 导出_start程序开始符号，链接器需要它
 global down_run                     ; 系统进入宕机
 global restart                      ; 进程恢复
+global halt
+global level0_sys_call
 ; 所有的异常处理入口
 global divide_error
 global single_step_exception
@@ -391,6 +394,23 @@ restart_reenter:
 	add esp, 4
 	; 中断返回：恢复eip cs eflags esp ss
 	iretd
+;============================================================================
+;                  CPU 待机
+;----------------------------------------------------------------------------
+; 本 halt 例程使用指令 hlt 让 CPU 闲置进入待机状态
+halt:
+    sti                 ; 开中断，为了在待机下快速响应用户事件
+    hlt                 ; 处理器休眠，中断可以再次打断该状态
+    cli                 ; 关中断
+    ret
+;============================================================================
+;   系统提权调用，只能给系统任务使用
+; 函数原型：void level0_sys_call(void);
+;----------------------------------------------------------------------------
+level0_sys_call:
+    call save
+    jmp [level0_func]       ; 好的，提权成功，我们现在已经处于内核代码段，直接跳转到需要提权的函数执行它
+    ret
 
 
 
