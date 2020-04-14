@@ -12,10 +12,9 @@
  */
 
 #include "kernel.h"
-#include "assert.h"
 #include "protect.h"
+#include <flyanx/common.h>
 #include "process.h"
-INIT_ASSERT             // 使用断言之前需要先初始化
 
 /*=========================================================================*
  *				flyanx_main				   *
@@ -83,8 +82,8 @@ void flyanx_main(void){
         proc->map.base = KERNEL_TEXT_SEG_BASE;
         proc->map.size = 0;     /* 内核的空间是整个内存，所以设置它没什么意义，为 0 即可 */
         /* ================= 初始化系统进程的栈帧以及上下文环境 ================= */
-        proc->regs.cs = ((CS_LDT_INDEX * DESCRIPTOR_SIZE) | SA_TIL | rpl);
-        proc->regs.ds = ((DS_LDT_INDEX * DESCRIPTOR_SIZE) | SA_TIL | rpl);
+        proc->regs.cs = ((CS_LDT_INDEX << 3) | SA_TIL | rpl);
+        proc->regs.ds = ((DS_LDT_INDEX << 3) | SA_TIL | rpl);
         proc->regs.es = proc->regs.fs = proc->regs.ss = proc->regs.ds;  /* C 语言不加以区分这几个段寄存器 */
         proc->regs.gs = (SELECTOR_KERNEL_GS & SA_RPL_MASK | rpl);       /* gs 指向显存 */
         proc->regs.eip = (reg_t) sys_proc->initial_eip;                 /* eip 指向要执行的代码首地址 */
@@ -93,9 +92,17 @@ void flyanx_main(void){
 
         /* 进程刚刚初始化，让它处于可运行状态，所以标志位上没有1 */
         proc->flags = CLEAN_MAP;
+        /* 如果该进程不是待机任务 或 虚拟硬件，就绪它 */
+        if(!is_idle_hardware(logic_nr)) ready(proc);
     }
 
-    curr_proc = proc_addr(-1);
+    /* 设置消费进程，它需要一个初值。因为系统闲置刚刚启动，所以此时闲置进程是一个最合适的选择。
+     * 随后在调用下一个函数 lock_hunter 进行第一次进程狩猎时可能会选择其他进程。
+     */
+    bill_proc = proc_addr(IDLE_TASK);
+    proc_addr(IDLE_TASK)->priority = PROC_PRI_IDLE;
+    lock_hunter();      /* 让我们看看，有什么进程那么幸运的被抓出来第一个执行 */
+
     /* 最后,main 的工作至此结束。它的工作到初始化结束为止。restart 的调用将启动第一个任务，
      * 控制权从此不再返回到main。
      *

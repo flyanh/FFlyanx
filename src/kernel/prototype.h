@@ -18,7 +18,7 @@
 #define FLYANX_PROTOTYPE_H
 
 /* 结构体声明 */
-
+struct process_s;
 
 
 /*================================================================================================*/
@@ -79,6 +79,18 @@ _PROTOTYPE( void bad_compare, (char *file, int line, int lhs, char *what, int rh
 /* clock.c */
 /*================================================================================================*/
 _PROTOTYPE( void clock_task, (void) );
+
+/* 公有函数声明 */
+/*================================================================================================*/
+/* process.c */
+/*================================================================================================*/
+_PROTOTYPE( void lock_schedule, (void) );
+_PROTOTYPE( void lock_unready, (struct process_s *proc) );
+_PROTOTYPE( void lock_ready, (struct process_s *proc) );
+_PROTOTYPE( void lock_hunter, (void) );
+_PROTOTYPE( void schedule_stop, (void ) );
+_PROTOTYPE( void ready, (struct process_s *proc) );
+_PROTOTYPE( void unready, (struct process_s *proc) );
 
 /*================================================================================================*/
 /* 异常处理入口例程 */

@@ -48,14 +48,6 @@ PUBLIC void clock_task(void){
 PRIVATE int clock_handler(int irq) {
 
     ticks++;
-    if(ticks % 100 == 0){
-        printf(">");
-        curr_proc++;
-        /* 超出我们的系统进程，拉回来 */
-        if(curr_proc > proc_addr(LOW_USER)) {
-            curr_proc = proc_addr(-NR_TASKS);
-        }
-    }
 
     return ENABLE;
 }
