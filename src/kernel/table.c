@@ -30,9 +30,9 @@
 #define NORMAL_STACK (256 * sizeof(char*))
 
 /* 待机任务堆栈 */
-#define IDLE_TASK_STACK SMALL_STACK
+#define IDLE_TASK_STACK     (19 * sizeof(char*))
 /* 虚拟硬件栈 */
-#define HARDWARE_STACK  0
+#define HARDWARE_STACK      0
 
 /* 所有系统进程的栈空间总大小 */
 #define TOTAL_SYS_PROC_STACK    ( IDLE_TASK_STACK )
@@ -48,7 +48,20 @@ PUBLIC SysProc_t sys_proc_table[] = {
         /* 虚拟硬件任务，只是占个位置 - 用作判断硬件中断 */
         { 0, HARDWARE_STACK, "HARDWARE" },
 
+
         /* ************************* 系统服务 ************************* */
 };
 
+/* 虽然已经尽量将所有用户可设置的配置消息单独放在 include/flyanx/config.h 中,但是在将系统任务表的大小与
+ * NR_TASKS 相匹配时仍可能会出现错误。在这里我们使用了一个小技巧对这个错误进行检测。方法是在这里声明一个
+ * dummy_task_table，声明的方式是假如发生了前述的错误,则 dummy_task_table 的大小将是非法的,从而导致编译错误。
+ * 由于哑数组声明为 extern ,此处并不会为它分配空间(其他地方也不为其分配空间)。因为在代码中任何地方都不会
+ * 引用到它,所以编译器和地址空间不会受任何影响。
+ *
+ * 简单解释：减去的是 ORIGIN，这些都不属于系统进程。
+ */
+//#define NKT (sizeof(task_table) / sizeof(Task_t) - (ORIGIN_PROC_NR + 1))
+#define NKT ( sizeof(sys_proc_table) / sizeof(SysProc_t) )
+
+extern int dummy_tasktab_check[NR_TASKS + NR_SERVERS == NKT ? 1 : -1];
 

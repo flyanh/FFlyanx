@@ -18,9 +18,12 @@
 
 
 /* Flyanx 用户和系统双用库 */
-
+_PROTOTYPE( int send_rec, (int src, Message_t *io_msg) );
+_PROTOTYPE( int in_outbox, (Message_t *in_msg, Message_t *out_msg) );
 
 /* Flyanx系统库 */
+_PROTOTYPE( int send, (int dest, Message_t* out_msg) );
+_PROTOTYPE( int receive, (int src, Message_t* in_msg) );
 
 
 #endif //_FLYANX_SYSLIB_H

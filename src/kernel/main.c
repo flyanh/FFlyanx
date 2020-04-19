@@ -150,6 +150,12 @@ PUBLIC void idle_task(void) {
      * 中都会保持中断开启，保证待机时间内随时可以响应活动。
      */
     printf("#{IDLE}-> Working...\n");
+    /* 测试系统调用 */
+    Message_t msg;
+    in_outbox(&msg, &msg);
+    send(HARDWARE, &msg);
+    receive(HARDWARE, &msg);
+    send_rec(HARDWARE, NULL);
     while (TRUE)
         level0(halt);
 }

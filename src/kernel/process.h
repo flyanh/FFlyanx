@@ -99,7 +99,7 @@ typedef struct process_s {
 #define NIL_PROC          ((Process_t *) 0)       /* 空进程指针 */
 #define logic_nr_2_index(n) (NR_TASKS + n)
 #define is_idle_hardware(n) ((n) == IDLE_TASK || (n) == HARDWARE)   /* 是空闲进程 或 硬件（特殊进程）？ */
-#define is_ok_proc_nr(n)      ((unsigned) ((n) + NR_TASKS) < NR_PROCS + NR_TASKS)   /* 是个合法的进程索引号？ */
+#define is_ok_proc_nr(n)      ((unsigned) ((n) + NR_TASKS) < NR_PROCS + NR_TASKS + NR_SERVERS)   /* 是个合法的进程索引号？ */
 #define is_ok_src_dest(n)   (is_ok_proc_nr(n) || (n) == ANY)                        /* 是个合法的发送或接收进程？ */
 #define is_any_hardware(n)   ((n) == ANY || (n) == HARDWARE)                        /* 发送/接收进程是任何 或 硬件（特殊进程）？ */
 #define is_sys_server(n)      ((n) == FS_PROC_NR || (n) == MM_PROC_NR || (n) == FLY_PROC_NR)      /* 是系统服务？ */

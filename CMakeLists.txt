@@ -19,4 +19,6 @@ add_executable(
         src/lib/stdio/sprintf.c
         src/kernel/i8259.c
         src/kernel/clock.c
+        src/kernel/process.c
+        src/kernel/ipc_msg.c
 )

@@ -28,6 +28,7 @@ _PROTOTYPE( void down_run, (void) );
 _PROTOTYPE( void restart, (void) );
 _PROTOTYPE( void, halt(void) );
 _PROTOTYPE( void level0_sys_call, (void) );
+_PROTOTYPE( void flyanx_386_sys_call, (void) );
 
 /*================================================================================================*/
 /* start.c */
@@ -61,6 +62,7 @@ _PROTOTYPE( void interrupt_unlock, (void) );
 _PROTOTYPE( int disable_irq, (int int_request) );
 _PROTOTYPE( void enable_irq, (int int_request) );
 _PROTOTYPE( void level0, (flyanx_syscall_t level0_func) );
+_PROTOTYPE( void msg_copy, (phys_bytes msg_phys, phys_bytes dest_phys) );
 
 /*================================================================================================*/
 /* i8259.c */
@@ -80,7 +82,6 @@ _PROTOTYPE( void bad_compare, (char *file, int line, int lhs, char *what, int rh
 /*================================================================================================*/
 _PROTOTYPE( void clock_task, (void) );
 
-/* 公有函数声明 */
 /*================================================================================================*/
 /* process.c */
 /*================================================================================================*/
@@ -91,6 +92,12 @@ _PROTOTYPE( void lock_hunter, (void) );
 _PROTOTYPE( void schedule_stop, (void ) );
 _PROTOTYPE( void ready, (struct process_s *proc) );
 _PROTOTYPE( void unready, (struct process_s *proc) );
+
+/*================================================================================================*/
+/* ipc_msg.c */
+/*================================================================================================*/
+_PROTOTYPE( int flyanx_send, (struct process_s *caller, int dest, Message_t *msg_phys) );
+_PROTOTYPE( int flyanx_receive, (struct process_s *caller, int src, Message_t *msg_phys) );
 
 /*================================================================================================*/
 /* 异常处理入口例程 */

@@ -16,6 +16,7 @@
 extern cstart                       ; 初始化一些事情，主要是改变gdt_ptr，让它指向新的GDT
 extern flyanx_main                  ; 内核主函数
 extern exception_handler            ; 异常统一处理例程
+extern sys_call                     ; 系统调用处理函数
 
 ; 导入变量
 extern gdt_ptr                      ; GDT指针
@@ -24,14 +25,15 @@ extern tss                          ; 任务状态段
 extern irq_handler_table            ; 硬件中断请求处理例程表
 extern curr_proc                    ; 当前执行进程
 extern kernel_reenter               ; 记录内核重入次数
-extern level0_func
+extern level0_func                  ; 存放提权成功的函数指针
 
 ; 导出函数
 global _start                       ; 导出_start程序开始符号，链接器需要它
 global down_run                     ; 系统进入宕机
 global restart                      ; 进程恢复
-global halt
-global level0_sys_call
+global halt                         ; 待机
+global level0_sys_call              ; 提权调用函数
+global flyanx_386_sys_call          ; 系统调用函数
 ; 所有的异常处理入口
 global divide_error
 global single_step_exception
@@ -372,6 +374,42 @@ save:
     ; 嵌套中断，已经处于内核栈，无需切换
     push restart_reenter        ; 压入 restart_reenter 地址，以便一会中断处理完毕后恢复，注意这里压入到的是内核堆栈
     jmp [esi + RETADDR - P_STACKBASE]   ; 回到 call save() 之后继续处理中断
+;============================================================================
+;   flyanx的系统调用
+; 函数原型：void flyanx_386_sys_call(void);
+; 系统调用流程：进程A进行系统调用（发送或接收一条消息），系统调用完成后，CPU控制权还是回到进程A手中，除非被调度程序调度。
+;----------------------------------------------------------------------------
+flyanx_386_sys_call:
+    ; 这一部分是 save 函数的精简版，为了效率；但其实直接 call save 也没有任何问题
+    push dword 0x3ea      ; 压入一个假的 ret_addr
+    pushad
+    push ds
+    push es
+    push fs
+    push gs
+    mov dx, ss
+    mov ds, dx
+    mov es, dx
+    mov esi, esp                ; esi 指向进程的栈帧开始处
+    inc byte [kernel_reenter]  ; 发生了一次中断，中断重入计数++
+    mov esp, StackTop
+    ; 重新开启中断,注：软件中断与硬件中断的相似之处还包括它们都会自动关中断
+    sti
+    ; 进行调用前，先保存进程的栈帧开始地址
+    push esi
+
+    ; 这里是重点，将所需参数压入栈中（现在处于核心栈），然后调用 sys_call 去真正调用实际的系统调用例程
+    push ebx        ; msg_ptr
+    push eax        ; src_dest_msgp
+    push ecx        ; op
+    call sys_call
+    add esp, 4 * 3  ; clean
+
+    ; 在完成进程恢复之前，关闭中断以保护即将被再次启动的进程的栈帧结构
+    pop esi
+    mov [esi + EAXREG - P_STACKBASE], eax   ; 将返回值放到调用进程的栈帧结构中的 eax 中
+    cli
+; 在这里，直接陷入 restart 的代码以重新启动进程/任务运行，这就是我们不需要完整 save 的原因
 ;============================================================================
 ;   中断处理完毕，回复之前挂起的进程
 ;----------------------------------------------------------------------------
