@@ -29,13 +29,17 @@
 /* 这是一个普通堆栈大小，1KB */
 #define NORMAL_STACK (256 * sizeof(char*))
 
+/* 时钟任务栈 */
+#define CLOCK_TASK_STACK    SMALL_STACK
 /* 待机任务堆栈 */
-#define IDLE_TASK_STACK     (19 * sizeof(char*))
+#define IDLE_TASK_STACK     (19 * sizeof(char*))    /* 3 个中断, 3 缓存 , 4 个字节，所以理论上只要 10 个。
+                                                     * 个人喜欢单数所以给多 9 个，没关系的。当然嫌麻烦直接
+                                                     * 设置 SMALL_STACK 也没问题啦~ */
 /* 虚拟硬件栈 */
 #define HARDWARE_STACK      0
 
 /* 所有系统进程的栈空间总大小 */
-#define TOTAL_SYS_PROC_STACK    ( IDLE_TASK_STACK )
+#define TOTAL_SYS_PROC_STACK    (  CLOCK_TASK_STACK + IDLE_TASK_STACK )
 
 /* 所有系统进程堆栈的堆栈空间。 （声明为（char *）使其对齐。） */
 PUBLIC char *sys_proc_stack[TOTAL_SYS_PROC_STACK / sizeof(char *)];
@@ -43,6 +47,8 @@ PUBLIC char *sys_proc_stack[TOTAL_SYS_PROC_STACK / sizeof(char *)];
 /* === 系统进程表，包含系统任务以及系统服务 === */
 PUBLIC SysProc_t sys_proc_table[] = {
         /* ************************* 系统任务 ************************* */
+        /* 时钟任务 */
+        { clock_task, CLOCK_TASK_STACK, "CLOCK" },
         /* 待机任务 */
         { idle_task, IDLE_TASK_STACK, "IDLE" },
         /* 虚拟硬件任务，只是占个位置 - 用作判断硬件中断 */
@@ -63,5 +69,5 @@ PUBLIC SysProc_t sys_proc_table[] = {
 //#define NKT (sizeof(task_table) / sizeof(Task_t) - (ORIGIN_PROC_NR + 1))
 #define NKT ( sizeof(sys_proc_table) / sizeof(SysProc_t) )
 
-extern int dummy_tasktab_check[NR_TASKS + NR_SERVERS == NKT ? 1 : -1];
+extern int dummy_task_table_check[NR_TASKS + NR_SERVERS == NKT ? 1 : -1];
 

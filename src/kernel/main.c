@@ -24,9 +24,6 @@ void flyanx_main(void){
 
     printf("#{flyanx_main}-->Hello OS!!!\n");
 
-    /* 启动时钟驱动任务 */
-    clock_task();
-
     /* 进程表的所有表项都被标志为空闲;
      * 对用于加快进程表访问的 p_proc_addr 数组进行初始化。
      */
@@ -152,10 +149,9 @@ PUBLIC void idle_task(void) {
     printf("#{IDLE}-> Working...\n");
     /* 测试系统调用 */
     Message_t msg;
-    in_outbox(&msg, &msg);
-    send(HARDWARE, &msg);
-    receive(HARDWARE, &msg);
-    send_rec(HARDWARE, NULL);
+    io_box(&msg);
+    sen_rec(CLOCK_TASK);
+    printf("send_rec, get type: %d\n", msg.type);
     while (TRUE)
         level0(halt);
 }

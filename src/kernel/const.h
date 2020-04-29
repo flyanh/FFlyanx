@@ -128,4 +128,11 @@
 /* 秒 转化为 毫秒 */
 #define second2ms(s) (s * 1000)
 
+/* 为了消息通信调用的简洁 */
+#define sen(n)              send(n, NIL_MESSAGE)
+#define rec(n)              receive(n, NIL_MESSAGE)
+#define sen_rec(n)          send_rec(n, NIL_MESSAGE)
+#define io_box(vir)         in_outbox(vir, vir);
+
+
 #endif //FLYANX_CONST_H

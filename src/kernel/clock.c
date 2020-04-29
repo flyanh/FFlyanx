@@ -6,6 +6,7 @@
  * gitee: https://gitee.com/flyanh/
  */
 #include "kernel.h"
+#include <flyanx/common.h>
 #include "process.h"
 
 /* 时钟, 8253 / 8254 PIT (可编程间隔定时器)参数 */
@@ -20,8 +21,9 @@
 #define TIMER_COUNT  (TIMER_FREQ / HZ)  /* initial value for counter*/
 #define CLOCK_ACK_BIT	    0x80		/* PS/2 clock interrupt acknowledge bit */
 
-/*  */
+/* 时钟任务的变量 */
 PRIVATE clock_t ticks;                  /* 对中断次数计数 */
+PRIVATE Message_t msg;
 
 /* 本地函数 */
 FORWARD _PROTOTYPE( int clock_handler, (int irq) );
@@ -36,9 +38,21 @@ PUBLIC void clock_task(void){
     /* 初始化时钟 */
     clock_init();
 
-    /* 打开中中断看看效果 */
-    interrupt_unlock();
+    /* 初始化收发件箱 */
+    io_box(&msg);
 
+    printf("#{CLOCK}-> Working...\n");
+    while(TRUE) {
+        /* 等待外界消息 */
+        rec(ANY);
+
+        /* 为外界提供服务 */
+        printf("#{CLOCK}-> get message from %d\n", msg.source);
+
+        /* 根据处理结果，发送回复消息 */
+        msg.type = 666;
+        sen(msg.source);
+    }
 }
 
 /*===========================================================================*
@@ -60,7 +74,6 @@ PRIVATE void clock_init(void) {
     /* 设置 8253定时器芯片 的模式和计数器Counter 0以产生每秒 100 次的
      * 时钟滴答中断，即每 10ms 产生一次中断。
      */
-    printf("#{clock_init}->called\n");
 
     /* 1 先写入我们使用的模式到 0x43 端口，即模式控制寄存器中 */
     out_byte(TIMER_MODE, RATE_GENERATOR);
