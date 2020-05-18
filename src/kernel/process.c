@@ -37,9 +37,10 @@ PRIVATE void hunter(void){
      * 候阻塞，都调用curr_proc来重新调度CPU。
      */
     register Process_t* prey;      /* 准备运行的进程 */
+
     if((prey = ready_head[TASK_QUEUE]) != NIL_PROC) {
         curr_proc = prey;
-        printf("%s hunter\n", curr_proc->name);
+//        printf("%s hunter\n", curr_proc->name);
         return;
     }
     if((prey = ready_head[SERVER_QUEUE]) != NIL_PROC) {
@@ -47,12 +48,11 @@ PRIVATE void hunter(void){
         return;
     }
     if((prey = ready_head[USER_QUEUE]) != NIL_PROC) {
-        curr_proc = prey;
+        bill_proc = curr_proc = prey;
         return;
     }
     /* 咳咳，本次狩猎失败了，那么只能狩猎 IDLE 待机进程了 */
-    prey = proc_addr(IDLE_TASK);
-    bill_proc = curr_proc = prey;
+    bill_proc = curr_proc = proc_addr(IDLE_TASK);
 
     /* 本例程只负责狩猎，狩猎到一个可以执行的进程，而进程执行完毕后的删除或更改在队列中的位置
      * 这种事情我们安排在其他地方去做。

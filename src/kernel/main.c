@@ -82,7 +82,7 @@ void flyanx_main(void){
         proc->regs.cs = ((CS_LDT_INDEX << 3) | SA_TIL | rpl);
         proc->regs.ds = ((DS_LDT_INDEX << 3) | SA_TIL | rpl);
         proc->regs.es = proc->regs.fs = proc->regs.ss = proc->regs.ds;  /* C 语言不加以区分这几个段寄存器 */
-        proc->regs.gs = (SELECTOR_KERNEL_GS & SA_RPL_MASK | rpl);       /* gs 指向显存 */
+        proc->regs.gs = ((SELECTOR_KERNEL_GS | rpl) & SA_RPL_MASK);     /* gs 指向显存 */
         proc->regs.eip = (reg_t) sys_proc->initial_eip;                 /* eip 指向要执行的代码首地址 */
         proc->regs.esp = sys_proc_stack_base;                           /* 设置栈顶 */
         proc->regs.eflags = is_task_proc(proc) ? INIT_TASK_PSW : INIT_PSW;
@@ -99,6 +99,9 @@ void flyanx_main(void){
     bill_proc = proc_addr(IDLE_TASK);
     proc_addr(IDLE_TASK)->priority = PROC_PRI_IDLE;
     lock_hunter();      /* 让我们看看，有什么进程那么幸运的被抓出来第一个执行 */
+
+    proc_dump();
+    map_dump();
 
     /* 最后,main 的工作至此结束。它的工作到初始化结束为止。restart 的调用将启动第一个任务，
      * 控制权从此不再返回到main。
@@ -146,12 +149,6 @@ PUBLIC void idle_task(void) {
      * 不至于像传统的死循环一样，消耗大量的 CPU 资源。而且在每个待机的过程
      * 中都会保持中断开启，保证待机时间内随时可以响应活动。
      */
-    printf("#{IDLE}-> Working...\n");
-    /* 测试系统调用 */
-    Message_t msg;
-    io_box(&msg);
-    sen_rec(CLOCK_TASK);
-    printf("send_rec, get type: %d\n", msg.type);
     while (TRUE)
         level0(halt);
 }

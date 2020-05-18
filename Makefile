@@ -71,7 +71,7 @@ FlyanxKernel    = $(tk)/kernel.bin
 # 内核，只实现基本功能
 KernelObjs      = $(tk)/kernel.o $(tk)/main.o $(tk)/kernel_386lib.o $(tk)/protect.o \
                   $(tk)/table.o $(tk)/start.o $(tk)/exception.o $(tk)/misc.o $(tk)/i8259.o \
-                  $(tk)/clock.o $(tk)/process.o $(tk)/ipc_msg.o
+                  $(tk)/clock.o $(tk)/process.o $(tk)/ipc_msg.o $(tk)/dump.o
 
 # 内核之外所需要的库，有系统库，也有提供给用户使用的库
 LibObjs         = $(AnsiObjs) $(StdioObjs) $(I386Objs)
@@ -184,6 +184,9 @@ $(tk)/process.o: $(sk)/process.c
 	$(CC) $(CFlags) -o $@ $<
 
 $(tk)/ipc_msg.o: $(sk)/ipc_msg.c
+	$(CC) $(CFlags) -o $@ $<
+
+$(tk)/dump.o: $(sk)/dump.c
 	$(CC) $(CFlags) -o $@ $<
 
 # ======= 库  =======
