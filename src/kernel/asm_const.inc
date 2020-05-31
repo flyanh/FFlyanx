@@ -47,6 +47,10 @@ INT_S_CTLMASK       equ    0xA1     ; setting bits in this port disables ints   
 EOI                 equ  0x20       ; EOI，发送给8259A端口1，以重新启用中断
 DISABLE             equ  0          ; 用于在中断后保持当前中断关闭的代码
 ENABLE              equ  EOI	    ; 用于在中断后重新启用当前中断的代码
+;-----------------------------------------------------------------------------------------------
+; CMOS
+CLK_ELE             equ 0x70
+CLK_IO		        equ 0x71
 
 ; 以下选择子值必须与 portect.h 中保持一致！
 SELECTOR_TEXT       equ 8                   ; LOADER 里面已经确定了的

@@ -53,8 +53,8 @@ PUBLIC SysProc_t sys_proc_table[] = {
         { idle_task, IDLE_TASK_STACK, "IDLE" },
         /* 虚拟硬件任务，只是占个位置 - 用作判断硬件中断 */
         { 0, HARDWARE_STACK, "HARDWARE" },
-
-
+        
+        
         /* ************************* 系统服务 ************************* */
 };
 

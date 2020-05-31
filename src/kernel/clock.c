@@ -10,6 +10,7 @@
 #include "kernel.h"
 #include <flyanx/common.h>
 #include "process.h"
+#include <sys/times.h>
 
 /* 用户进程使用时间片轮转算法，这里可以对轮转时间进行配置 */
 #define SCHEDULE_MILLISECOND    130         /* 用户进程调度的频率（毫秒），根据喜好设置就行 */
@@ -27,18 +28,44 @@
 #define TIMER_COUNT  (TIMER_FREQ / HZ)  /* initial value for counter*/
 #define CLOCK_ACK_BIT	    0x80		/* PS/2 clock interrupt acknowledge bit */
 
+#define MINUTES 60	                /* 1 分钟的秒数。 */
+#define HOURS   (60 * MINUTES)	    /* 1 小时的秒数。 */
+#define DAYS    (24 * HOURS)		/* 1 天的秒数。 */
+#define YEARS   (365 * DAYS)	    /* 1 年的秒数。 */
+
 /* 时钟任务的变量 */
 PRIVATE Message_t msg;
 PRIVATE clock_t ticks;          /* 时钟运行的时间(滴答数)，也是开机后时钟运行的时间 */
 PRIVATE time_t realtime;        /* 时钟运行的时间(s)，也是开机后时钟运行的时间 */
+PRIVATE time_t boot_time;       /* 系统开机时间(s) */
 
 /* 由中断处理程序更改的变量 */
 PRIVATE clock_t schedule_ticks = SCHEDULE_TICKS;    /* 用户进程调度时间，当为0时候，进行程序调度 */
 PRIVATE Process_t *last_proc;                       /* 最后使用时钟任务的用户进程 */
 
+/* 下面以年为界限，定义了每个月开始时的秒数时间数组。 */
+PRIVATE int month_map[12] = {
+        0,
+        DAYS * (31),
+        DAYS * (31 + 29),
+        DAYS * (31 + 29 + 31),
+        DAYS * (31 + 29 + 31 + 30),
+        DAYS * (31 + 29 + 31 + 30 + 31),
+        DAYS * (31 + 29 + 31 + 30 + 31 + 30),
+        DAYS * (31 + 29 + 31 + 30 + 31 + 30 + 31),
+        DAYS * (31 + 29 + 31 + 30 + 31 + 30 + 31 + 31),
+        DAYS * (31 + 29 + 31 + 30 + 31 + 30 + 31 + 31 + 30),
+        DAYS * (31 + 29 + 31 + 30 + 31 + 30 + 31 + 31 + 30 + 31),
+        DAYS * (31 + 29 + 31 + 30 + 31 + 30 + 31 + 31 + 30 + 31 + 30)
+};
+
 /* 本地函数 */
 FORWARD _PROTOTYPE( int clock_handler, (int irq) );
 FORWARD _PROTOTYPE( void clock_init, (void) );
+FORWARD _PROTOTYPE( time_t mktime, (RTCTime_t *p_time) );
+FORWARD _PROTOTYPE( void do_get_uptime, (void) );
+FORWARD _PROTOTYPE( void do_get_time, (void) );
+FORWARD _PROTOTYPE( void do_set_time, (void) );
 
 /*===========================================================================*
  *				clock_task				     *
@@ -64,7 +91,9 @@ PUBLIC void clock_task(void){
 
         /* 提供服务 */
         switch (msg.type) {
-
+            case GET_UPTIME:    do_get_uptime();    break;
+            case GET_TIME:      do_get_time();      break;
+            case SET_TIME:      do_set_time();      break;
             default:    panic("#{CLOCK}-> Clock task got bad message request.\n", msg.type);
         }
 
@@ -72,6 +101,30 @@ PUBLIC void clock_task(void){
         msg.type = OK;          /* 时钟驱动无可能失败的服务 */
         sen(msg.source);    /* 回复 */
     }
+}
+
+/*===========================================================================*
+ *				do_get_uptime				     *
+ *			获取时钟运行时间(tick)
+ *===========================================================================*/
+PRIVATE void do_get_uptime(void) {
+    msg.CLOCK_TIME = ticks;     /* 设置到消息中，将会回复给请求者 */
+}
+
+/*===========================================================================*
+ *				do_get_time				     *
+ *			获取时钟实时时间(s)
+ *===========================================================================*/
+PRIVATE void do_get_time(void) {
+    msg.CLOCK_TIME = (long) (boot_time + realtime);     /* 实时时间 = 开机时间 + 时钟运行时间 */
+}
+
+/*===========================================================================*
+ *				do_set_time				     *
+ *			设置时钟实时时间(s)
+ *===========================================================================*/
+PRIVATE void do_set_time(void) {
+    boot_time = msg.CLOCK_TIME - realtime;  /* 系统启动时间 = 用户设置的时间 - 时钟运行时间 */
 }
 
 /*===========================================================================*
@@ -105,6 +158,69 @@ PRIVATE int clock_handler(int irq) {
 }
 
 /*===========================================================================*
+ *				do_get_rtc_time					     *
+ *		        获取硬件系统实时时间
+ *===========================================================================*/
+PUBLIC void get_rtc_time(RTCTime_t *p_time) {
+    /* 这个例程很简单，不断的从 CMOS 的端口中获取时间的详细数据 */
+    u8_t status;
+
+    p_time->year = cmos_read(YEAR);
+    p_time->month = cmos_read(MONTH);
+    p_time->day = cmos_read(DAY);
+    p_time->hour = cmos_read(HOUR);
+    p_time->minute = cmos_read(MINUTE);
+    p_time->second = cmos_read(SECOND);
+
+    /* 查看 CMOS 返回的 RTC 时间是不是 BCD 码？
+     * 如果是，我们还需要手动将 BCD 码转换成十进制。
+     */
+    status = cmos_read(CLK_STATUS);
+    if( (status & 0x4) == 0 ) {
+        p_time->year = bcd2dec(p_time->year);
+        p_time->month = bcd2dec(p_time->month);
+        p_time->day = bcd2dec(p_time->day);
+        p_time->hour = bcd2dec(p_time->hour);
+        p_time->minute = bcd2dec(p_time->minute);
+        p_time->second =bcd2dec(p_time->second);
+    }
+    p_time->year += 2000;   /* CMOS 记录的年是从 2000 年开始的，我们补上 */
+}
+
+/*===========================================================================*
+ *				mktime				     *
+ *			设置正确的开机时间
+ *===========================================================================*/
+PRIVATE time_t mktime(RTCTime_t *p_time) {
+    /* 这个函数只供内核使用，所以我们不需要关心 1970 以前的年份。
+     * 计算从 1970 年 1 月 1 日 0 时起到开机当日经过的秒数，作为开机时间。
+     * 对于这个转换后的时间，即 UNIX 的传统，被称为 UNIX 时间戳。
+     */
+
+    time_t now;
+    u16_t year = p_time->year;
+    u8_t mouth = p_time->month;
+    u16_t day = p_time->day;
+    u8_t hour = p_time->hour, minute = p_time->minute, second = p_time->second;
+
+    year -= 1970;                   /* 从 1970 开始 */
+    /* 为了获得正确的闰年数，这里需要这样一个魔幻偏值 year + 1 */
+    now = YEARS * year + DAYS * ( (year + 1) / 4 );     /* 这些年经过的秒数时间 + 每个闰年时多 1 天的秒数时间 */
+    now += month_map[mouth - 1];                        /* 再加上当年到当月的秒数 */
+    /* 如果 (year + 2) 不是闰年，我们就需要进行调整（减去一天的秒数） */
+    if( mouth - 1 > 0 && ( (year + 2) % 4 ) ) {
+        now -= DAYS;
+    }
+    now += DAYS * (day - 1);        /* 加上本月过去的天数的秒数 */
+    now += HOURS * hour;            /* 加上当天过去的小时的秒数 */
+    now += MINUTES * minute;        /* 加上一小时内过去的分钟的秒数 */
+    now += second;                  /* 加上一分钟内过去的秒数 */
+    /* 这点我们很容易忽略，因为我们要北京时间，需要减去 8 个时区 */
+    return (now - (8 * HOURS));
+}
+
+
+/*===========================================================================*
  *				clock_init				     *
  *				时钟初始化
  *===========================================================================*/
@@ -122,6 +238,14 @@ PRIVATE void clock_init(void) {
     /* 设置时钟中断处理例程并打开其中断响应 */
     put_irq_handler(CLOCK_IRQ, clock_handler);
     enable_irq(CLOCK_IRQ);
+
+    /* 设置正确的开机启动时间 */
+    RTCTime_t now;
+    get_rtc_time(&now);
+    boot_time = mktime(&now);
+    printf("#{CLOCK}-> now is %d-%d-%d %d:%d:%d\n",
+            now.year, now.month, now.day, now.hour, now.minute, now.second);
+    printf("#{CLOCK}-> boot startup time is %ld\n", boot_time);
 }
 
 

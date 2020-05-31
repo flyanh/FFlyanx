@@ -29,6 +29,7 @@ global disable_irq              ; 屏蔽一个特定的中断
 global enable_irq               ; 启用一个特定的中断
 global level0                   ; 将一个函数提权到 0，再进行调用
 global msg_copy                 ; 消息拷贝
+global cmos_read                ; 从 CMOS 读取数据
 ;*===========================================================================*
 ;*				phys_copy				     *
 ;*===========================================================================*
@@ -275,4 +276,17 @@ msg_copy:
     pop edi
     pop esi
     ret
-
+;============================================================================
+;   从 CMOS 读取数据
+; 函数原型： u8_t cmos_read(u8_t addr);
+;----------------------------------------------------------------------------
+cmos_read:
+    push edx
+        mov al, [esp + 4 * 2]   ; 要输出的字节
+        out CLK_ELE, al         ; al -> CMOS ELE port
+        nop                     ; 一点延迟
+        xor eax, eax
+        in al, CLK_IO           ; port -> al
+        nop                     ; 一点延迟
+    pop edx
+    ret

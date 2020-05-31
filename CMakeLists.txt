@@ -21,4 +21,5 @@ add_executable(
         src/kernel/clock.c
         src/kernel/process.c
         src/kernel/ipc_msg.c
-        src/kernel/dump.c)
+        src/kernel/dump.c
+ )

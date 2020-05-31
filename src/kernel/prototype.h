@@ -19,6 +19,7 @@
 
 /* 结构体声明 */
 struct process_s;
+struct rtc_time;
 
 
 /*================================================================================================*/
@@ -63,6 +64,7 @@ _PROTOTYPE( int disable_irq, (int int_request) );
 _PROTOTYPE( void enable_irq, (int int_request) );
 _PROTOTYPE( void level0, (flyanx_syscall_t level0_func) );
 _PROTOTYPE( void msg_copy, (phys_bytes msg_phys, phys_bytes dest_phys) );
+_PROTOTYPE( u8_t cmos_read, (u8_t addr) );
 
 /*================================================================================================*/
 /* i8259.c */
@@ -81,6 +83,7 @@ _PROTOTYPE( void bad_compare, (char *file, int line, int lhs, char *what, int rh
 /* clock.c */
 /*================================================================================================*/
 _PROTOTYPE( void clock_task, (void) );
+_PROTOTYPE( void get_rtc_time, (struct rtc_time *p_time) );
 
 /*================================================================================================*/
 /* process.c */
