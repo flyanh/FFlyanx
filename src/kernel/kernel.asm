@@ -17,6 +17,7 @@ extern cstart                       ; 初始化一些事情，主要是改变gdt
 extern flyanx_main                  ; 内核主函数
 extern exception_handler            ; 异常统一处理例程
 extern sys_call                     ; 系统调用处理函数
+extern unhold                       ; 处理挂起的中断
 
 ; 导入变量
 extern gdt_ptr                      ; GDT指针
@@ -414,6 +415,11 @@ flyanx_386_sys_call:
 ;   中断处理完毕，回复之前挂起的进程
 ;----------------------------------------------------------------------------
 restart:
+    ; 如果检测到存在被挂起的中断，这些中断是在处理其他中断期间到达的，
+    ; 则调用 unhold，这样就允许在任何进程被重新启动之前将所有挂起的中断转换为消息。
+    ; 这将暂时地重新关闭中断，但在 unhold 返回之前将再次打开中断。
+    call unhold
+over_unhold:
 	mov esp, [curr_proc - P_STACKBASE]	; 离开内核栈，指向运行进程的栈帧，现在的位置是 gs
 	lldt [esp + P_LDT_SEL]	            ; 每个进程有自己的 LDT，所以每次进程的切换都需要加载新的ldtr
 	; 把该进程栈帧外 ldt_sel 的地址保存到 tss3.sp0 中，下次的 save 将保存所有寄存器到该进程的栈帧中

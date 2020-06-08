@@ -84,6 +84,7 @@ _PROTOTYPE( void bad_compare, (char *file, int line, int lhs, char *what, int rh
 /*================================================================================================*/
 _PROTOTYPE( void clock_task, (void) );
 _PROTOTYPE( void get_rtc_time, (struct rtc_time *p_time) );
+_PROTOTYPE( void milli_delay, (time_t delay_ms) );
 
 /*================================================================================================*/
 /* process.c */
@@ -95,6 +96,8 @@ _PROTOTYPE( void lock_hunter, (void) );
 _PROTOTYPE( void schedule_stop, (void ) );
 _PROTOTYPE( void ready, (struct process_s *proc) );
 _PROTOTYPE( void unready, (struct process_s *proc) );
+_PROTOTYPE( void interrupt, (int task) );
+_PROTOTYPE( void unhold, (void) );
 
 /*================================================================================================*/
 /* ipc_msg.c */

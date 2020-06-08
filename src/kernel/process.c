@@ -21,6 +21,93 @@ FORWARD _PROTOTYPE( void hunter, (void) );
 FORWARD _PROTOTYPE( void schedule, (void) );
 
 /*===========================================================================*
+ *				     interrupt   				     *
+ *				  通知系统任务发生了一个硬件中断
+ *===========================================================================*/
+PUBLIC void interrupt(int task) {
+    /* 在接受到一条硬件中断后，相应设备的底层中断服务例程将调用该函数。
+     * 功能是将中断转换为向该设备所对应的系统任务发送一条消息，而且通常
+     * 在调用 interrupt 之前几乎不进行什么操作。
+     */
+    register Process_t *target = proc_addr(task);   /* 要中断的任务 */
+
+    /* 如果发生中断重入或正在发送一个进程切换，则将当前中断加入排队队列，函数到此结束，
+     * 当前挂起的中断将在以后调用 unhold 时再处理。
+     */
+    if(kernel_reenter != 0 || switching) {
+        interrupt_lock();
+        /* 如果进程没有中断被挂起正在等待处理时才继续
+         * 这样做是为了保证一个任务的中断不会重复的被挂起，因为这是无用功，
+         * 最重要的是让任务尽快完成首次被挂起的中断
+         */
+        if(!target->int_held) {
+            target->int_held = TRUE;
+            if(held_head == NIL_PROC)
+                held_head = target;
+            else
+                held_tail->next_held = target;
+            held_tail = target;             /* 无论如何，尾指针都指向最新挂起的 target */
+            target->next_held = NIL_PROC;
+        }
+        interrupt_unlock();
+        return;
+    }
+
+    /* 现在检查任务是否正在等待一个中断，如果任务未做好接收中断准备，则其 int_blocked
+     * 标志被置位 - 在 ipc.c 文件中的 flyanx_receive 接收消息例程中我们将使得丢失的
+     * 中断可能被恢复，并且不需要发送消息(@TODO)。
+     */
+    if( (target->flags & (RECEIVING | SENDING)) != RECEIVING || /* 不处于单纯的接收消息的状态 */
+        !is_any_hardware(target->get_form)) {
+        target->int_blocked = TRUE;     /* 该中断被堵塞 */
+        return;
+    }
+
+    /* 通过上面的测试，现在被中断的系统任务可以接收一条硬件消息了，我们我们开始向其发送消息。
+     * 从 HARDWARE(代表计算机硬件)向系统任务发送消息是很简单的，因为任务和核心是编译到同一个文件
+     * 中的，因此可以访问相同的数据区域，直接赋值即可。
+     */
+    target->inbox->source = HARDWARE;
+    target->inbox->type = HARD_INT;
+    target->flags &= ~RECEIVING;
+    target->int_blocked = FALSE;
+
+    /* 进程就绪例程 ready 例程的在线代码替换
+     * 因为从中断产生的消息只会发送到系统任务，这样便无需确定操作的进程队列了。
+     */
+    if(ready_head[TASK_QUEUE] != NIL_PROC)
+        ready_tail[TASK_QUEUE]->next_ready = target;
+    else
+        curr_proc = ready_head[TASK_QUEUE] = target;
+    ready_tail[TASK_QUEUE] = target;
+    target->next_ready = NIL_PROC;
+}
+
+/*===========================================================================*
+ *				     unhold   				     *
+ *				  处理挂起的中断
+ *===========================================================================*/
+PUBLIC void unhold(void) {
+    /* 遍历被挂起的中断队列，使用 interrupt 函数去处理每个中断，
+     * 其目的是在另一个进程被允许运行之前将每一条挂起的中断转换
+     * 成一个消息处理掉。
+     */
+    register Process_t *target; /* 指向挂起的中断队列成员 */
+
+    /* 如果进程正在切换，或队列为空，下次一定 */
+    if( switching || held_head == NIL_PROC ) return;
+
+    target = held_head;
+    do {
+        held_head = held_head->next_held;   /* 队列下一个成员 */
+        interrupt_lock();
+        interrupt(target->logic_nr);        /* 产生一条硬件消息给它 */
+        interrupt_unlock();
+    } while ( (target = held_head) != NIL_PROC );
+    held_tail = NIL_PROC;                   /* 已经处理完毕，尾指针也指向 NULL */
+}
+
+/*===========================================================================*
  *				     hunter   				     *
  *				  狩猎一个进程用于下次执行
  *===========================================================================*/

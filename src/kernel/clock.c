@@ -38,6 +38,8 @@ PRIVATE Message_t msg;
 PRIVATE clock_t ticks;          /* 时钟运行的时间(滴答数)，也是开机后时钟运行的时间 */
 PRIVATE time_t realtime;        /* 时钟运行的时间(s)，也是开机后时钟运行的时间 */
 PRIVATE time_t boot_time;       /* 系统开机时间(s) */
+PRIVATE clock_t next_alarm = ULONG_MAX;     /* 下一个闹钟发生的时刻 */
+PRIVATE clock_t delay_alarm = ULONG_MAX;    /* ULONG_MAX: 毫秒级延迟函数退出；代表一个可到达的闹钟计时 */
 
 /* 由中断处理程序更改的变量 */
 PRIVATE clock_t schedule_ticks = SCHEDULE_TICKS;    /* 用户进程调度时间，当为0时候，进行程序调度 */
@@ -63,9 +65,10 @@ PRIVATE int month_map[12] = {
 FORWARD _PROTOTYPE( int clock_handler, (int irq) );
 FORWARD _PROTOTYPE( void clock_init, (void) );
 FORWARD _PROTOTYPE( time_t mktime, (RTCTime_t *p_time) );
-FORWARD _PROTOTYPE( void do_get_uptime, (void) );
-FORWARD _PROTOTYPE( void do_get_time, (void) );
-FORWARD _PROTOTYPE( void do_set_time, (void) );
+FORWARD _PROTOTYPE( inline void do_get_uptime, (void) );
+FORWARD _PROTOTYPE( inline void do_get_time, (void) );
+FORWARD _PROTOTYPE( inline void do_set_time, (void) );
+FORWARD _PROTOTYPE( void do_clock_int, (void) );
 
 /*===========================================================================*
  *				clock_task				     *
@@ -79,6 +82,10 @@ PUBLIC void clock_task(void){
     /* 初始化收发件箱 */
     io_box(&msg);
 
+    /* 测试毫秒级延迟函数 */
+    printf("i am zangsan, i am man!\n");
+    milli_delay(sec2ms(5));
+    printf("i am zangsan, no!\n");
     printf("#{CLOCK}-> Working...\n");
     while(TRUE) {
         /* 等待外界消息 */
@@ -91,6 +98,7 @@ PUBLIC void clock_task(void){
 
         /* 提供服务 */
         switch (msg.type) {
+            case HARD_INT:      do_clock_int();     break;
             case GET_UPTIME:    do_get_uptime();    break;
             case GET_TIME:      do_get_time();      break;
             case SET_TIME:      do_set_time();      break;
@@ -103,11 +111,46 @@ PUBLIC void clock_task(void){
     }
 }
 
+PUBLIC void milli_delay(time_t delay_ms) {
+    /* 毫秒级的延迟函数
+      *
+      * 这个函数是为需要极短延迟的任务提供的。它用 C 语言编写，没有引入任何硬件相关性，
+      * 但是使用了一种人们只有在低级汇编语言中找到的技术。它把计数器初始化为零，然后
+      * 对其快速轮询直到到达指定的值。
+      * 这种忙等待技术一般应该避免，但是，实现的必要性要求不能遵循一般的规则。
+      *
+      * 注意：毫秒级，也只能达到 10 毫秒内的延迟
+      * 因为 10ms 是因为我们设置系统发生时钟中断的时间间隔，我们没法做到更精确于此值的
+      * 延迟，但是对于所有需要精确的延迟技术的函数，这已经足够了。
+      * 本函数也能被时钟任务调用，因为一旦时钟中断打开，本函数就能正常运行了，所以必须
+      * 要在中时钟中断初始化后才能被正常调用。
+      */
+
+    /* 得出退出循环的闹钟时间 */
+    delay_alarm = ticks + delay_ms / ONE_TICK_MILLISECOND;
+    /* 只要检测到毫秒级闹钟未被关闭，说明时候未到，继续死循环 */
+    while ( delay_alarm != ULONG_MAX ) {  }
+}
+
+/*===========================================================================*
+ *				do_clock_int				     *
+ *			    处理时钟(软)中断
+ *===========================================================================*/
+PRIVATE void do_clock_int(void) {
+    /* 尽管这个例程叫做这个名字，但要注意的一点是，并不是在每次时钟中断都会调用
+     * 这个例程的。当中断处理程序确定有一些重要的工作不得不做时才会通知时钟任务
+     * 让时钟任务来调用本例程。
+     */
+
+    printf("i am clock int, hi brother!\n");
+    next_alarm = ULONG_MAX;
+}
+
 /*===========================================================================*
  *				do_get_uptime				     *
  *			获取时钟运行时间(tick)
  *===========================================================================*/
-PRIVATE void do_get_uptime(void) {
+PRIVATE inline void do_get_uptime(void) {
     msg.CLOCK_TIME = ticks;     /* 设置到消息中，将会回复给请求者 */
 }
 
@@ -115,7 +158,7 @@ PRIVATE void do_get_uptime(void) {
  *				do_get_time				     *
  *			获取时钟实时时间(s)
  *===========================================================================*/
-PRIVATE void do_get_time(void) {
+PRIVATE inline void do_get_time(void) {
     msg.CLOCK_TIME = (long) (boot_time + realtime);     /* 实时时间 = 开机时间 + 时钟运行时间 */
 }
 
@@ -123,7 +166,7 @@ PRIVATE void do_get_time(void) {
  *				do_set_time				     *
  *			设置时钟实时时间(s)
  *===========================================================================*/
-PRIVATE void do_set_time(void) {
+PRIVATE inline void do_set_time(void) {
     boot_time = msg.CLOCK_TIME - realtime;  /* 系统启动时间 = 用户设置的时间 - 时钟运行时间 */
 }
 
@@ -147,6 +190,17 @@ PRIVATE int clock_handler(int irq) {
     target->user_time++;        /* 用户时间记账 */
     if(target != bill_proc && target != proc_addr(HARDWARE))
         bill_proc->sys_time++;  /* 当前进程不是计费的用户进程，那么它应该是使用了系统调用陷入了内核，记录它的系统时间 */
+
+    /* 闹钟时间到了？产生一个时钟中断，唤醒时钟任务 */
+    if( next_alarm <= ticks ) {
+        interrupt(CLOCK_TASK);
+        return ENABLE;
+    }
+
+    /* 毫秒级休眠函数退出闹钟响了？ */
+    if( delay_alarm <= ticks ) {
+        delay_alarm = ULONG_MAX;    /* 关闭毫秒级延迟闹钟 */
+    }
 
     /* 重置用户进程调度时间片 */
     if(--schedule_ticks == 0) {
