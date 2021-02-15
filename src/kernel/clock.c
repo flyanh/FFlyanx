@@ -82,11 +82,11 @@ PUBLIC void clock_task(void){
     /* 初始化收发件箱 */
     io_box(&msg);
 
-    /* 测试毫秒级延迟函数 */
-    printf("i am zangsan, i am man!\n");
-    milli_delay(sec2ms(5));
-    printf("i am zangsan, no!\n");
-    printf("#{CLOCK}-> Working...\n");
+//    /* 测试毫秒级延迟函数 */
+//    printf("i am zangsan, i am man!\n");
+//    milli_delay(sec2ms(5));
+//    printf("i am zangsan, no!\n");
+//    printf("#{CLOCK}-> Working...\n");
     while(TRUE) {
         /* 等待外界消息 */
         rec(ANY);

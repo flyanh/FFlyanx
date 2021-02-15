@@ -22,4 +22,4 @@ add_executable(
         src/kernel/process.c
         src/kernel/ipc_msg.c
         src/kernel/dump.c
- )
+        src/kernel/keyboard.c src/kernel/keymaps/us-std.h include/flyanx/keymap.h src/kernel/keymaps/us-std.h)

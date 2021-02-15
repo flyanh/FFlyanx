@@ -87,6 +87,7 @@ low_print:
     jmp .1
 .2: ; 处理换行符'\n'
     push eax
+    push ebx
     mov eax, edi                ; eax = 显示位置
     mov bl, 160
     div bl                      ; 显示位置 / 160，商eax就是当前所在行数
@@ -94,6 +95,7 @@ low_print:
     mov bl, 160
     mul bl                      ; 行数 * 160，得出这行的显示位置
     mov edi, eax                ; edi = 新的显示位置
+    pop ebx
     pop eax
     jmp .1
 .PrintEnd:
