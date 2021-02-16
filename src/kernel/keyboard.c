@@ -34,7 +34,7 @@
 #define SCROLL_LOCK	    0x01    /* 二进制：0001 */
 #define NUM_LOCK	    0x02    /* 二进制：0010 */
 #define CAPS_LOCK	    0x04    /* 二进制：0100 */
-#define DEFAULT_LOCK    0x02    /* 默认：小键盘也是打开的 */
+#define DEFAULT_LOCK    0x02    /* 默认：小键盘是打开的 */
 
 /* 键盘缓冲区 */
 #define KEYBOARD_IN_BYTES	  32	/* 键盘输入缓冲区的大小 */
@@ -61,9 +61,7 @@ PRIVATE bool_t shift = FALSE;		        /* SHIFT键状态，不分左右 */
 PRIVATE bool_t num_down = FALSE;		    /* 数字锁定键(数字小键盘锁定键)按下 */
 PRIVATE bool_t caps_down = FALSE;		    /* 大写锁定键按下 */
 PRIVATE bool_t scroll_down = FALSE;	        /* 滚动锁定键按下 */
-PRIVATE u8_t locks[NR_CONSOLES] = {         /* 每个控制台的锁定键状态 */
-        DEFAULT_LOCK, DEFAULT_LOCK, DEFAULT_LOCK
-};
+PRIVATE u8_t locks[NR_CONSOLES];            /* 每个控制台的锁定键状态 */
 
 
 /* 数字键盘的转义字符映射 */
@@ -105,32 +103,60 @@ PRIVATE u8_t scan_key(void) {
  *===========================================================================*/
 PRIVATE int keyboard_handler(int irq) {
 
-    u8_t scan_code = scan_key();
-//    printf("{%c}", map_key0(scan_code));
-
     /* Buffer available. */
     if(input_count < KEYBOARD_IN_BYTES) {
-        *input_free++ = scan_code;
+        *input_free++ = scan_key(); /* Scan code append to buffer's free zone. */
         ++input_count;
-    } else
-    /* Buffer is full. */
-    {
-        /* @Test of full. */
-        int i;
-        u8_t prb[KEYBOARD_IN_BYTES + 1];
-        for(i = 0; i < KEYBOARD_IN_BYTES; ++i) {
-            prb[i] = map_key0(input_buff[i]);
-            if(prb[i] == 0) {
-                prb[i] = ' ';
-            }
-        }
-        prb[KEYBOARD_IN_BYTES] = '\0';
-        printf("input buffer full. string is '%s'\n", prb);
 
-        input_free = input_buff;
+        /* Buffer is full. */
+        if(input_count == KEYBOARD_IN_BYTES) {
+            /* @Test of full. */
+            int i;
+            u8_t prb[KEYBOARD_IN_BYTES + 1];
+            for(i = 0; i < KEYBOARD_IN_BYTES; ++i) {
+                prb[i] = map_key0(input_buff[i]);
+                if(prb[i] == 0) {
+                    prb[i] = ' ';
+                }
+            }
+            prb[KEYBOARD_IN_BYTES] = '\0';
+            printf("input buffer full. string is '%s'\n", prb);
+
+            input_free = input_buff;
+        }
     }
 
     return ENABLE;
+}
+
+
+/*===========================================================================*
+ *				    keyboard_wait					     *
+ *			      等待键盘直到其不忙，即就绪状态
+ *===========================================================================*/
+PRIVATE int keyboard_wait(void) {
+    /* CPU等待8042控制器处于可以接收参数的就绪状态；如果超时，返回0 */
+
+    int retries = MAX_KEYBOARD_BUSY_RETRIES;
+    u8_t status;
+    while (retries-- > 0 && ((status = in_byte(KEYBOARD_STATUS)) & (KEYBOARD_IN_FULL | KEYBOARD_OUT_FULL)) != 0) {
+        if((status & KEYBOARD_OUT_FULL) != 0) {
+            (void) in_byte(KEYBOARD_DATA); /* 丢弃 */
+        }
+    }
+    return retries; /* 为 0 超时 */
+}
+
+/*===========================================================================*
+ *				    keyboard_ack					     *
+ *			        键盘等待命令响应
+ *===========================================================================*/
+PRIVATE int keyboard_ack(void) {
+    /* CPU 等待 8042 控制器确认最后一条命令响应； 如果超时，返回 0 */
+
+    int retries = MAX_KEYBOARD_ACK_RETRIES;
+    for (; retries-- > 0 && in_byte(KEYBOARD_DATA) != KEYBOARD_ACK; );  /* 循环等待响应 */
+    return retries;
 }
 
 /*===========================================================================*
@@ -138,13 +164,27 @@ PRIVATE int keyboard_handler(int irq) {
  *			    设置键盘的LED灯
  *===========================================================================*/
 PRIVATE void setting_led(void) {
+    keyboard_wait();
+    out_byte(KEYBOARD_DATA, LED_CODE);
+    keyboard_ack();
 
+    keyboard_wait();
+    out_byte(KEYBOARD_DATA, locks[0]);
+    keyboard_ack();
 }
 
+/*===========================================================================*
+ *				keyboard_init					     *
+ *				键盘驱动初始化
+ *===========================================================================*/
 PUBLIC void keyboard_init(void) {
     printf("#{KEY_BD}-> init...\n");
 
-    /* @TODO 设置 LED */
+    /* 初始化设置 LED */
+    int i = 0;
+    for(; i < NR_CONSOLES; ++i) {
+        locks[i] = DEFAULT_LOCK;
+    }
     setting_led();
 
     /* 扫描键盘以确保没有残余的键入，清空 */
