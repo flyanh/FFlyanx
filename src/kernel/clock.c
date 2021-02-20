@@ -46,7 +46,7 @@ PRIVATE clock_t schedule_ticks = SCHEDULE_TICKS;    /* 用户进程调度时间�
 PRIVATE Process_t *last_proc;                       /* 最后使用时钟任务的用户进程 */
 
 /* 下面以年为界限，定义了每个月开始时的秒数时间数组。 */
-PRIVATE int month_map[12] = {
+PRIVATE FINAL int month_map[12] = {
         0,
         DAYS * (31),
         DAYS * (31 + 29),

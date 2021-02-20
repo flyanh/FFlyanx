@@ -4,7 +4,7 @@
 
 static Keymap_t keymap = {
 
-/* scan-code		!Shift	Shift	Alt1	Alt2	Alt+Sh	Ctrl	*/
+/* scan-code		!Shift	Shift	Alt1	Alt2(ctrl + alt)	Alt+Sh	Ctrl	*/
 /* ==================================================================== */
 /* 00 - none	*/	0,	0,	0,	0,	0,	0,
 /* 01 - ESC	*/	C('['),	C('['),	CA('['),CA('['),CA('['),C('['),

@@ -23,6 +23,7 @@
 #define EXTERN        extern	/* used in *.h files */
 /* PRIVATE是static的同义词，带上它的变量或函数将只在它所在当前文件中可见，所以可称为私有(PRIVATE) */
 #define PRIVATE       static	/* PRIVATE x limits the scope of x */
+#define FINAL         const     /* FINAL is invariable constants */
 /* 带上PUBLIC，将是公有，可以被其他文件所看到 */
 #define PUBLIC					/* PUBLIC is the opposite of PRIVATE */
 /* FORWARD，一些编译器要求它是静态static的 */
